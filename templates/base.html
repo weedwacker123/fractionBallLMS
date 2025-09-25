@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Fraction Ball Teacher LMS{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <link href="{% load static %}{% static 'dist/output.css' %}" rel="stylesheet">
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.8"></script>
+    
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-secondary-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-secondary-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-semibold text-primary-600">
+                        Fraction Ball LMS
+                    </h1>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    {% if user.is_authenticated %}
+                        <span class="text-sm text-secondary-600">
+                            Welcome, {{ user.get_full_name|default:user.username }}
+                        </span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                            {{ user.get_role_display }}
+                        </span>
+                        {% if user.is_staff %}
+                            <a href="/admin/" class="text-sm text-primary-600 hover:text-primary-500">
+                                Admin
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {% block content %}
+        <div class="px-4 py-6 sm:px-0">
+            <div class="card">
+                <h2 class="text-2xl font-bold text-secondary-900 mb-4">
+                    Welcome to Fraction Ball Teacher LMS
+                </h2>
+                <p class="text-secondary-600 mb-6">
+                    A comprehensive platform for math education content management.
+                </p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-primary-50 rounded-lg p-6">
+                        <h3 class="font-semibold text-primary-900 mb-2">Upload Content</h3>
+                        <p class="text-sm text-primary-700 mb-4">
+                            Upload videos and resources for your classroom.
+                        </p>
+                        <a href="/upload/" class="btn btn-primary text-sm">
+                            Upload Files
+                        </a>
+                    </div>
+                    
+                    <div class="bg-blue-50 rounded-lg p-6">
+                        <h3 class="font-semibold text-blue-900 mb-2">API Documentation</h3>
+                        <p class="text-sm text-blue-700 mb-4">
+                            Explore the REST API endpoints and test them interactively.
+                        </p>
+                        <a href="/api/docs/" class="btn bg-blue-600 text-white hover:bg-blue-700 text-sm">
+                            View API Docs
+                        </a>
+                    </div>
+                    
+                    <div class="bg-secondary-50 rounded-lg p-6">
+                        <h3 class="font-semibold text-secondary-900 mb-2">Admin Panel</h3>
+                        <p class="text-sm text-secondary-700 mb-4">
+                            Manage users, schools, and system configuration.
+                        </p>
+                        <a href="/admin/" class="btn btn-secondary text-sm">
+                            Admin Panel
+                        </a>
+                    </div>
+                    
+                    <div class="bg-green-50 rounded-lg p-6">
+                        <h3 class="font-semibold text-green-900 mb-2">Health Check</h3>
+                        <p class="text-sm text-green-700 mb-4">
+                            Verify that all system components are running properly.
+                        </p>
+                        <a href="/api/healthz/" class="btn bg-green-600 text-white hover:bg-green-700 text-sm">
+                            Check Status
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-secondary-200 mt-12">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+            <p class="text-center text-sm text-secondary-500">
+                © 2024 Fraction Ball Teacher LMS. Built with Django & Tailwind CSS.
+            </p>
+        </div>
+    </footer>
+
+    {% block extra_body %}{% endblock %}
+</body>
+</html>

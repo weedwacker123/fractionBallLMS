@@ -1,0 +1,14 @@
+{
+  "name": "fractionball-lms",
+  "version": "1.0.0",
+  "description": "Fraction Ball Teacher LMS Platform",
+  "scripts": {
+    "build-css": "tailwindcss -i ./static/src/input.css -o ./static/dist/output.css --watch",
+    "build-css-prod": "tailwindcss -i ./static/src/input.css -o ./static/dist/output.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.3.6",
+    "@tailwindcss/forms": "^0.5.7",
+    "@tailwindcss/typography": "^0.5.10"
+  }
+}

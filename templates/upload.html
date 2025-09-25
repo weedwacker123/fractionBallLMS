@@ -1,0 +1,347 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload Content - Fraction Ball LMS{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6">
+    <div class="card">
+        <h1 class="text-3xl font-bold text-secondary-900 mb-6">Upload Content</h1>
+        
+        <!-- Upload Form -->
+        <div id="upload-form" class="space-y-6">
+            <!-- File Selection -->
+            <div>
+                <label class="form-label">Select File</label>
+                <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-secondary-300 border-dashed rounded-md hover:border-primary-400 transition-colors">
+                    <div class="space-y-1 text-center">
+                        <svg class="mx-auto h-12 w-12 text-secondary-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <div class="flex text-sm text-secondary-600">
+                            <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary-500">
+                                <span>Upload a file</span>
+                                <input id="file-upload" name="file-upload" type="file" class="sr-only" accept="video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt">
+                            </label>
+                            <p class="pl-1">or drag and drop</p>
+                        </div>
+                        <p class="text-xs text-secondary-500">
+                            Videos: MP4, MOV, AVI up to 500MB<br>
+                            Resources: PDF, DOC, PPT, XLS up to 50MB
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- File Info (hidden initially) -->
+            <div id="file-info" class="hidden bg-primary-50 rounded-lg p-4">
+                <h3 class="font-medium text-primary-900 mb-2">Selected File</h3>
+                <div class="text-sm text-primary-700">
+                    <p><strong>Name:</strong> <span id="file-name"></span></p>
+                    <p><strong>Size:</strong> <span id="file-size"></span></p>
+                    <p><strong>Type:</strong> <span id="file-type"></span></p>
+                </div>
+            </div>
+            
+            <!-- Metadata Form -->
+            <div id="metadata-form" class="hidden space-y-4">
+                <div>
+                    <label for="title" class="form-label">Title *</label>
+                    <input type="text" id="title" name="title" required class="form-input" placeholder="Enter a descriptive title">
+                </div>
+                
+                <div>
+                    <label for="description" class="form-label">Description</label>
+                    <textarea id="description" name="description" rows="3" class="form-input" placeholder="Optional description of the content"></textarea>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="grade" class="form-label">Grade Level</label>
+                        <select id="grade" name="grade" class="form-input">
+                            <option value="">Select grade (optional)</option>
+                            <option value="K">Kindergarten</option>
+                            <option value="1">Grade 1</option>
+                            <option value="2">Grade 2</option>
+                            <option value="3">Grade 3</option>
+                            <option value="4">Grade 4</option>
+                            <option value="5">Grade 5</option>
+                            <option value="6">Grade 6</option>
+                            <option value="7">Grade 7</option>
+                            <option value="8">Grade 8</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="topic" class="form-label">Topic</label>
+                        <select id="topic" name="topic" class="form-input">
+                            <option value="">Select topic (optional)</option>
+                            <option value="fractions_basics">Fractions Basics</option>
+                            <option value="equivalent_fractions">Equivalent Fractions</option>
+                            <option value="comparing_ordering">Comparing/Ordering</option>
+                            <option value="number_line">Number Line</option>
+                            <option value="mixed_improper">Mixed ↔ Improper</option>
+                            <option value="add_subtract_fractions">Add/Subtract Fractions</option>
+                            <option value="multiply_divide_fractions">Multiply/Divide Fractions (6+)</option>
+                            <option value="decimals_percents">Decimals & Percents</option>
+                            <option value="ratio_proportion">Ratio/Proportion (6+)</option>
+                            <option value="word_problems">Word Problems</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="tags" class="form-label">Tags</label>
+                    <input type="text" id="tags" name="tags" class="form-input" placeholder="Enter tags separated by commas">
+                    <p class="mt-1 text-sm text-secondary-500">Example: visual, interactive, beginner</p>
+                </div>
+                
+                <!-- Video-specific fields -->
+                <div id="video-fields" class="hidden">
+                    <label for="duration" class="form-label">Duration (seconds)</label>
+                    <input type="number" id="duration" name="duration" class="form-input" placeholder="Video duration in seconds (optional)">
+                </div>
+            </div>
+            
+            <!-- Upload Button -->
+            <div id="upload-button-container" class="hidden">
+                <button id="upload-btn" type="button" class="btn btn-primary w-full">
+                    Upload Content
+                </button>
+            </div>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div id="progress-container" class="hidden mt-6">
+            <div class="bg-secondary-200 rounded-full h-2">
+                <div id="progress-bar" class="bg-primary-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <p id="progress-text" class="text-sm text-secondary-600 mt-2">Preparing upload...</p>
+        </div>
+        
+        <!-- Success Message -->
+        <div id="success-message" class="hidden mt-6 bg-green-50 border border-green-200 rounded-md p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-green-800">Upload Successful!</h3>
+                    <div class="mt-2 text-sm text-green-700">
+                        <p>Your content has been uploaded successfully and is now in draft status.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Error Message -->
+        <div id="error-message" class="hidden mt-6 bg-red-50 border border-red-200 rounded-md p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">Upload Failed</h3>
+                    <div class="mt-2 text-sm text-red-700">
+                        <p id="error-text">An error occurred during upload.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('file-upload');
+    const fileInfo = document.getElementById('file-info');
+    const metadataForm = document.getElementById('metadata-form');
+    const uploadButtonContainer = document.getElementById('upload-button-container');
+    const progressContainer = document.getElementById('progress-container');
+    const successMessage = document.getElementById('success-message');
+    const errorMessage = document.getElementById('error-message');
+    const uploadBtn = document.getElementById('upload-btn');
+    
+    let selectedFile = null;
+    
+    // File selection handler
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            selectedFile = file;
+            showFileInfo(file);
+            metadataForm.classList.remove('hidden');
+            uploadButtonContainer.classList.remove('hidden');
+        }
+    });
+    
+    // Show file information
+    function showFileInfo(file) {
+        document.getElementById('file-name').textContent = file.name;
+        document.getElementById('file-size').textContent = formatFileSize(file.size);
+        document.getElementById('file-type').textContent = file.type;
+        
+        // Show video-specific fields for video files
+        if (file.type.startsWith('video/')) {
+            document.getElementById('video-fields').classList.remove('hidden');
+        } else {
+            document.getElementById('video-fields').classList.add('hidden');
+        }
+        
+        fileInfo.classList.remove('hidden');
+    }
+    
+    // Format file size
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    // Upload handler
+    uploadBtn.addEventListener('click', async function() {
+        if (!selectedFile) return;
+        
+        try {
+            // Hide messages
+            successMessage.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            
+            // Show progress
+            progressContainer.classList.remove('hidden');
+            updateProgress(10, 'Requesting upload URL...');
+            
+            // Get upload URL
+            const uploadData = await requestUploadUrl();
+            updateProgress(20, 'Got upload URL, starting upload...');
+            
+            // Upload file
+            await uploadFile(uploadData);
+            updateProgress(90, 'Finalizing upload...');
+            
+            // Complete upload
+            await completeUpload(uploadData);
+            updateProgress(100, 'Upload complete!');
+            
+            // Show success
+            setTimeout(() => {
+                progressContainer.classList.add('hidden');
+                successMessage.classList.remove('hidden');
+            }, 1000);
+            
+        } catch (error) {
+            console.error('Upload error:', error);
+            progressContainer.classList.add('hidden');
+            document.getElementById('error-text').textContent = error.message || 'Upload failed';
+            errorMessage.classList.remove('hidden');
+        }
+    });
+    
+    // Request signed upload URL
+    async function requestUploadUrl() {
+        const category = selectedFile.type.startsWith('video/') ? 'video' : 'resource';
+        
+        const response = await fetch('/api/uploads/sign/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + getFirebaseToken(), // You'll need to implement this
+            },
+            body: JSON.stringify({
+                filename: selectedFile.name,
+                file_size: selectedFile.size,
+                content_type: selectedFile.type,
+                category: category
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to get upload URL');
+        }
+        
+        return await response.json();
+    }
+    
+    // Upload file to Firebase Storage
+    async function uploadFile(uploadData) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = 20 + (e.loaded / e.total) * 60; // 20-80%
+                    updateProgress(percentComplete, `Uploading... ${Math.round(percentComplete)}%`);
+                }
+            });
+            
+            xhr.addEventListener('load', () => {
+                if (xhr.status === 200) {
+                    resolve();
+                } else {
+                    reject(new Error('Upload failed'));
+                }
+            });
+            
+            xhr.addEventListener('error', () => {
+                reject(new Error('Upload failed'));
+            });
+            
+            xhr.open('PUT', uploadData.upload_url);
+            xhr.setRequestHeader('Content-Type', selectedFile.type);
+            xhr.send(selectedFile);
+        });
+    }
+    
+    // Complete upload and create asset record
+    async function completeUpload(uploadData) {
+        const tags = document.getElementById('tags').value
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(tag => tag.length > 0);
+        
+        const response = await fetch('/api/uploads/complete/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + getFirebaseToken(),
+            },
+            body: JSON.stringify({
+                storage_path: uploadData.storage_path,
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                grade: document.getElementById('grade').value,
+                topic: document.getElementById('topic').value,
+                tags: tags,
+                duration: document.getElementById('duration').value ? parseInt(document.getElementById('duration').value) : null
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to complete upload');
+        }
+        
+        return await response.json();
+    }
+    
+    // Update progress bar
+    function updateProgress(percent, text) {
+        document.getElementById('progress-bar').style.width = percent + '%';
+        document.getElementById('progress-text').textContent = text;
+    }
+    
+    // Get Firebase token (placeholder - implement based on your auth system)
+    function getFirebaseToken() {
+        // This should return the current user's Firebase ID token
+        // Implementation depends on your frontend Firebase setup
+        return 'placeholder-token';
+    }
+});
+</script>
+{% endblock %}
