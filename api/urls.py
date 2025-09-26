@@ -17,6 +17,12 @@ urlpatterns = [
     # School-specific users
     path('schools/<int:school_id>/users/', views.SchoolUserListView.as_view(), name='school-users'),
     
+    # Admin operations
+    path('admin/', include('accounts.urls')),
+    
+    # System configuration
+    path('config/', include('config.urls')),
+    
     # Content management
     path('', include('content.urls')),
     

@@ -3,7 +3,10 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.utils import timezone
-from .models import VideoAsset, Resource, Playlist, PlaylistItem
+from .models import (
+    VideoAsset, Resource, Playlist, PlaylistItem, PlaylistShare,
+    AuditLog, AssetView, AssetDownload, DailyAssetStats
+)
 
 
 @admin.register(VideoAsset)
@@ -279,3 +282,179 @@ class PlaylistItemAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """Optimize queryset"""
         return super().get_queryset(request).select_related('playlist', 'video_asset')
+
+
+@admin.register(PlaylistShare)
+class PlaylistShareAdmin(admin.ModelAdmin):
+    """Admin configuration for PlaylistShare model"""
+    
+    list_display = ['playlist', 'created_by', 'share_token', 'is_active', 'is_expired_display', 'view_count', 'created_at']
+    list_filter = ['is_active', 'created_at', 'expires_at']
+    search_fields = ['playlist__name', 'created_by__username', 'created_by__email']
+    readonly_fields = ['id', 'share_token', 'created_at', 'updated_at', 'is_expired', 'is_valid', 'share_url_display']
+    
+    fieldsets = (
+        (None, {
+            'fields': ('id', 'playlist', 'created_by', 'share_token')
+        }),
+        ('Settings', {
+            'fields': ('is_active', 'expires_at')
+        }),
+        ('Tracking', {
+            'fields': ('view_count', 'last_accessed'),
+            'classes': ('collapse',)
+        }),
+        ('Status', {
+            'fields': ('is_expired', 'is_valid', 'share_url_display'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def is_expired_display(self, obj):
+        """Display expiration status"""
+        if obj.is_expired:
+            return format_html('<span style="color: red;">Expired</span>')
+        elif obj.expires_at:
+            return format_html('<span style="color: orange;">Expires {}</span>', obj.expires_at)
+        else:
+            return format_html('<span style="color: green;">Never expires</span>')
+    is_expired_display.short_description = 'Expiration Status'
+    
+    def share_url_display(self, obj):
+        """Display share URL"""
+        return format_html('<a href="/api/shared/{}/" target="_blank">View Share</a>', obj.share_token)
+    share_url_display.short_description = 'Share URL'
+    
+    def get_queryset(self, request):
+        """Optimize queryset"""
+        return super().get_queryset(request).select_related('playlist', 'created_by')
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    """Admin configuration for AuditLog model"""
+    
+    list_display = ['action', 'user', 'ip_address', 'created_at']
+    list_filter = ['action', 'created_at']
+    search_fields = ['user__username', 'user__email', 'metadata', 'ip_address']
+    readonly_fields = ['id', 'created_at', 'metadata_display']
+    
+    fieldsets = (
+        (None, {
+            'fields': ('id', 'action', 'user', 'created_at')
+        }),
+        ('Context', {
+            'fields': ('ip_address', 'user_agent'),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('metadata_display',),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def metadata_display(self, obj):
+        """Display formatted metadata"""
+        import json
+        if obj.metadata:
+            return format_html('<pre>{}</pre>', json.dumps(obj.metadata, indent=2))
+        return 'No metadata'
+    metadata_display.short_description = 'Metadata'
+    
+    def get_queryset(self, request):
+        """Optimize queryset and limit results"""
+        return super().get_queryset(request).select_related('user')[:1000]  # Limit for performance
+
+
+@admin.register(AssetView)
+class AssetViewAdmin(admin.ModelAdmin):
+    """Admin configuration for AssetView model"""
+    
+    list_display = ['asset', 'user', 'completion_percentage', 'duration_watched', 'viewed_at']
+    list_filter = ['viewed_at', 'completion_percentage']
+    search_fields = ['asset__title', 'user__username', 'session_id']
+    readonly_fields = ['id', 'viewed_at']
+    
+    fieldsets = (
+        (None, {
+            'fields': ('id', 'asset', 'user', 'session_id', 'viewed_at')
+        }),
+        ('Viewing Data', {
+            'fields': ('duration_watched', 'completion_percentage', 'referrer')
+        }),
+    )
+    
+    def get_queryset(self, request):
+        """Optimize queryset and limit results"""
+        return super().get_queryset(request).select_related('asset', 'user')[:1000]
+
+
+@admin.register(AssetDownload)
+class AssetDownloadAdmin(admin.ModelAdmin):
+    """Admin configuration for AssetDownload model"""
+    
+    list_display = ['resource', 'user', 'download_completed', 'file_size_display', 'downloaded_at']
+    list_filter = ['download_completed', 'downloaded_at']
+    search_fields = ['resource__title', 'user__username']
+    readonly_fields = ['id', 'downloaded_at', 'file_size_display']
+    
+    fieldsets = (
+        (None, {
+            'fields': ('id', 'resource', 'user', 'downloaded_at')
+        }),
+        ('Download Data', {
+            'fields': ('file_size', 'file_size_display', 'download_completed')
+        }),
+        ('Context', {
+            'fields': ('ip_address', 'user_agent'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def file_size_display(self, obj):
+        """Display formatted file size"""
+        if obj.file_size:
+            if obj.file_size < 1024 * 1024:
+                return f"{obj.file_size / 1024:.1f} KB"
+            else:
+                return f"{obj.file_size / (1024 * 1024):.1f} MB"
+        return "Unknown"
+    file_size_display.short_description = 'File Size'
+    
+    def get_queryset(self, request):
+        """Optimize queryset"""
+        return super().get_queryset(request).select_related('resource', 'user')
+
+
+@admin.register(DailyAssetStats)
+class DailyAssetStatsAdmin(admin.ModelAdmin):
+    """Admin configuration for DailyAssetStats model"""
+    
+    list_display = ['asset', 'date', 'view_count', 'unique_viewers', 'avg_completion_rate', 'playlist_adds']
+    list_filter = ['date', 'view_count', 'unique_viewers']
+    search_fields = ['asset__title']
+    readonly_fields = ['created_at', 'updated_at']
+    
+    fieldsets = (
+        (None, {
+            'fields': ('asset', 'date')
+        }),
+        ('View Statistics', {
+            'fields': ('view_count', 'unique_viewers', 'total_watch_time', 'avg_completion_rate')
+        }),
+        ('Engagement', {
+            'fields': ('playlist_adds',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        """Optimize queryset"""
+        return super().get_queryset(request).select_related('asset')

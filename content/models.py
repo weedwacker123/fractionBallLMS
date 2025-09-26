@@ -136,10 +136,18 @@ class VideoAsset(models.Model):
         verbose_name = 'Video Asset'
         verbose_name_plural = 'Video Assets'
         indexes = [
+            # Core filtering indexes
             models.Index(fields=['school', 'status']),
             models.Index(fields=['grade', 'topic']),
             models.Index(fields=['owner', 'created_at']),
             models.Index(fields=['status', 'created_at']),
+            # Library search and filtering indexes
+            models.Index(fields=['school', 'status', 'grade']),
+            models.Index(fields=['school', 'status', 'topic']),
+            models.Index(fields=['school', 'status', 'created_at']),
+            models.Index(fields=['title']),  # For title searches
+            # Composite indexes for common query patterns
+            models.Index(fields=['school', 'grade', 'topic', 'status']),
         ]
     
     def __str__(self):
@@ -248,9 +256,16 @@ class Resource(models.Model):
         verbose_name = 'Resource'
         verbose_name_plural = 'Resources'
         indexes = [
+            # Core filtering indexes
             models.Index(fields=['school', 'status']),
             models.Index(fields=['file_type', 'status']),
             models.Index(fields=['owner', 'created_at']),
+            # Library search and filtering indexes
+            models.Index(fields=['school', 'status', 'file_type']),
+            models.Index(fields=['school', 'status', 'created_at']),
+            models.Index(fields=['title']),  # For title searches
+            # Optional taxonomy indexes
+            models.Index(fields=['grade', 'topic']),
         ]
     
     def __str__(self):
@@ -372,3 +387,224 @@ class PlaylistItem(models.Model):
             last_item = PlaylistItem.objects.filter(playlist=self.playlist).order_by('-order').first()
             self.order = (last_item.order + 1) if last_item else 1
         super().save(*args, **kwargs)
+
+
+class PlaylistShare(models.Model):
+    """Share tokens for playlists (teacher → teacher sharing)"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    playlist = models.ForeignKey(Playlist, on_delete=models.CASCADE, related_name='shares')
+    share_token = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_shares')
+    
+    # Share settings
+    expires_at = models.DateTimeField(
+        null=True, 
+        blank=True,
+        help_text="Optional expiration date for the share link"
+    )
+    is_active = models.BooleanField(default=True)
+    
+    # Access tracking
+    view_count = models.PositiveIntegerField(default=0)
+    last_accessed = models.DateTimeField(null=True, blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Playlist Share'
+        verbose_name_plural = 'Playlist Shares'
+        indexes = [
+            models.Index(fields=['share_token']),
+            models.Index(fields=['playlist', 'is_active']),
+            models.Index(fields=['created_by', 'created_at']),
+        ]
+    
+    def __str__(self):
+        return f"Share: {self.playlist.name} by {self.created_by.get_full_name()}"
+    
+    @property
+    def is_expired(self):
+        """Check if share link is expired"""
+        if not self.expires_at:
+            return False
+        from django.utils import timezone
+        return timezone.now() > self.expires_at
+    
+    @property
+    def is_valid(self):
+        """Check if share link is valid and accessible"""
+        return self.is_active and not self.is_expired
+
+
+class AuditLog(models.Model):
+    """Audit log for tracking important actions"""
+    
+    ACTION_CHOICES = [
+        ('PLAYLIST_SHARED', 'Playlist Shared'),
+        ('PLAYLIST_DUPLICATED', 'Playlist Duplicated'),
+        ('RESOURCE_DOWNLOADED', 'Resource Downloaded'),
+        ('VIDEO_VIEWED', 'Video Viewed'),
+        ('USER_LOGIN', 'User Login'),
+        ('CONTENT_UPLOADED', 'Content Uploaded'),
+        ('CONTENT_APPROVED', 'Content Approved'),
+        ('CONTENT_REJECTED', 'Content Rejected'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES, db_index=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='audit_logs')
+    
+    # Flexible metadata storage
+    metadata = models.JSONField(
+        default=dict,
+        help_text="Additional data about the action (original_owner, playlist_id, etc.)"
+    )
+    
+    # Context information
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Audit Log'
+        verbose_name_plural = 'Audit Logs'
+        indexes = [
+            models.Index(fields=['action', 'created_at']),
+            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['created_at']),  # For time-based queries
+        ]
+    
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.get_action_display()} ({self.created_at})"
+
+
+class AssetView(models.Model):
+    """Track video views for analytics"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    asset = models.ForeignKey(VideoAsset, on_delete=models.CASCADE, related_name='views')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='asset_views')
+    
+    # Session tracking
+    session_id = models.CharField(
+        max_length=50, 
+        help_text="Browser session ID to avoid duplicate counting"
+    )
+    
+    # View metadata
+    duration_watched = models.PositiveIntegerField(
+        null=True, 
+        blank=True,
+        help_text="Seconds of video watched (if available)"
+    )
+    completion_percentage = models.FloatField(
+        null=True, 
+        blank=True,
+        help_text="Percentage of video completed (0.0-1.0)"
+    )
+    
+    # Context
+    referrer = models.URLField(blank=True, help_text="Page that linked to this video")
+    
+    # Timestamps
+    viewed_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    
+    class Meta:
+        ordering = ['-viewed_at']
+        verbose_name = 'Asset View'
+        verbose_name_plural = 'Asset Views'
+        indexes = [
+            models.Index(fields=['asset', 'viewed_at']),
+            models.Index(fields=['user', 'viewed_at']),
+            models.Index(fields=['session_id', 'asset']),  # Duplicate detection
+            models.Index(fields=['viewed_at']),  # Time-based queries
+        ]
+    
+    def __str__(self):
+        return f"{self.user.get_full_name()} viewed {self.asset.title}"
+
+
+class AssetDownload(models.Model):
+    """Track resource downloads for analytics"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    resource = models.ForeignKey(Resource, on_delete=models.CASCADE, related_name='downloads')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='resource_downloads')
+    
+    # Download metadata
+    file_size = models.BigIntegerField(null=True, blank=True)
+    download_completed = models.BooleanField(
+        default=True,
+        help_text="Whether the download was completed successfully"
+    )
+    
+    # Context
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    
+    # Timestamps
+    downloaded_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    
+    class Meta:
+        ordering = ['-downloaded_at']
+        verbose_name = 'Asset Download'
+        verbose_name_plural = 'Asset Downloads'
+        indexes = [
+            models.Index(fields=['resource', 'downloaded_at']),
+            models.Index(fields=['user', 'downloaded_at']),
+            models.Index(fields=['downloaded_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.get_full_name()} downloaded {self.resource.title}"
+
+
+class DailyAssetStats(models.Model):
+    """Daily rollup of asset statistics for performance"""
+    
+    asset = models.ForeignKey(VideoAsset, on_delete=models.CASCADE, related_name='daily_stats')
+    date = models.DateField(db_index=True)
+    
+    # View statistics
+    view_count = models.PositiveIntegerField(default=0)
+    unique_viewers = models.PositiveIntegerField(default=0)
+    total_watch_time = models.PositiveIntegerField(
+        default=0,
+        help_text="Total seconds watched across all views"
+    )
+    avg_completion_rate = models.FloatField(
+        null=True, 
+        blank=True,
+        help_text="Average completion percentage (0.0-1.0)"
+    )
+    
+    # Engagement metrics
+    playlist_adds = models.PositiveIntegerField(
+        default=0,
+        help_text="Times this video was added to playlists"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('asset', 'date')
+        ordering = ['-date', 'asset']
+        verbose_name = 'Daily Asset Stats'
+        verbose_name_plural = 'Daily Asset Stats'
+        indexes = [
+            models.Index(fields=['asset', 'date']),
+            models.Index(fields=['date', 'view_count']),  # Top content queries
+            models.Index(fields=['date', 'unique_viewers']),
+        ]
+    
+    def __str__(self):
+        return f"{self.asset.title} - {self.date} ({self.view_count} views)"

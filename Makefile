@@ -55,6 +55,15 @@ seed: ## Seed database with initial data
 seed-content: ## Seed database with content taxonomy and sample data
 	docker-compose exec web python manage.py seed_taxonomy
 
+generate-test-data: ## Generate large-scale test data for performance testing
+	docker-compose exec web python manage.py generate_test_data --videos 1000 --resources 500 --playlists 100
+
+rollup-analytics: ## Rollup daily analytics statistics
+	docker-compose exec web python manage.py rollup_daily_stats
+
+init-config: ## Initialize system configuration and feature flags
+	docker-compose exec web python manage.py init_system_config
+
 superuser: ## Create superuser
 	docker-compose exec web python manage.py createsuperuser
 

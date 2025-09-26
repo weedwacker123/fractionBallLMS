@@ -1,0 +1,525 @@
+"""
+Library views for content discovery and teacher dashboard
+"""
+from rest_framework import generics, status, permissions
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
+from django_filters.rest_framework import DjangoFilterBackend
+from django.contrib.auth import get_user_model
+from django.db import models
+from django.db.models import Count, Q, Avg
+from django.utils import timezone
+from datetime import datetime, timedelta
+from accounts.permissions import IsTeacher
+from .models import VideoAsset, Resource, Playlist
+from .serializers import VideoAssetSerializer, ResourceSerializer, PlaylistSerializer
+from .filters import VideoAssetFilter, ResourceFilter
+import logging
+
+logger = logging.getLogger(__name__)
+User = get_user_model()
+
+
+class LibraryPagination(PageNumberPagination):
+    """Custom pagination for library views"""
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class LibraryVideoListView(generics.ListAPIView):
+    """
+    Library view for videos with advanced search, filtering, and pagination
+    GET /api/library/videos/
+    """
+    serializer_class = VideoAssetSerializer
+    permission_classes = [IsTeacher]
+    pagination_class = LibraryPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = VideoAssetFilter
+    
+    def get_queryset(self):
+        """Optimized queryset for library browsing"""
+        queryset = VideoAsset.objects.select_related(
+            'owner', 'school', 'reviewed_by'
+        ).filter(
+            # Only published videos visible in library (except to owners/admins)
+            school=self.request.user.school
+        )
+        
+        # Non-owners can only see published videos (unless they're admins)
+        if not (self.request.user.is_admin or self.request.user.is_school_admin):
+            queryset = queryset.filter(
+                Q(owner=self.request.user) | Q(status='PUBLISHED')
+            )
+        
+        return queryset.distinct()
+    
+    def get_filterset_kwargs(self, filterset_class):
+        """Pass request to filterset for dynamic owner choices"""
+        kwargs = super().get_filterset_kwargs(filterset_class)
+        kwargs['request'] = self.request
+        return kwargs
+    
+    def list(self, request, *args, **kwargs):
+        """Enhanced list response with metadata"""
+        response = super().list(request, *args, **kwargs)
+        
+        # Add search/filter metadata
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        response.data['filters'] = {
+            'total_results': queryset.count(),
+            'grades_available': list(
+                queryset.values_list('grade', flat=True).distinct().order_by('grade')
+            ),
+            'topics_available': list(
+                queryset.values_list('topic', flat=True).distinct().order_by('topic')
+            ),
+            'applied_filters': dict(request.query_params)
+        }
+        
+        return response
+
+
+class LibraryResourceListView(generics.ListAPIView):
+    """
+    Library view for resources with search and filtering
+    GET /api/library/resources/
+    """
+    serializer_class = ResourceSerializer
+    permission_classes = [IsTeacher]
+    pagination_class = LibraryPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = ResourceFilter
+    
+    def get_queryset(self):
+        """Optimized queryset for resource browsing"""
+        queryset = Resource.objects.select_related(
+            'owner', 'school'
+        ).filter(
+            school=self.request.user.school
+        )
+        
+        # Non-owners can only see published resources
+        if not (self.request.user.is_admin or self.request.user.is_school_admin):
+            queryset = queryset.filter(
+                Q(owner=self.request.user) | Q(status='PUBLISHED')
+            )
+        
+        return queryset.distinct()
+    
+    def get_filterset_kwargs(self, filterset_class):
+        """Pass request to filterset for dynamic owner choices"""
+        kwargs = super().get_filterset_kwargs(filterset_class)
+        kwargs['request'] = self.request
+        return kwargs
+
+
+class LibraryPlaylistListView(generics.ListAPIView):
+    """
+    Library view for playlists
+    GET /api/library/playlists/
+    """
+    serializer_class = PlaylistSerializer
+    permission_classes = [IsTeacher]
+    pagination_class = LibraryPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['is_public', 'owner']
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'created_at', 'updated_at']
+    ordering = ['-updated_at']
+    
+    def get_queryset(self):
+        """Playlists visible to the user"""
+        queryset = Playlist.objects.select_related(
+            'owner', 'school'
+        ).prefetch_related(
+            'playlistitem_set__video_asset'
+        ).filter(
+            school=self.request.user.school
+        )
+        
+        # Users can see their own playlists or public ones
+        if not (self.request.user.is_admin or self.request.user.is_school_admin):
+            queryset = queryset.filter(
+                Q(owner=self.request.user) | Q(is_public=True)
+            )
+        
+        return queryset
+
+
+class LibraryVideoDetailView(generics.RetrieveAPIView):
+    """
+    Detailed view of a video asset
+    GET /api/library/videos/{id}/
+    """
+    serializer_class = VideoAssetSerializer
+    permission_classes = [IsTeacher]
+    
+    def get_queryset(self):
+        """Videos accessible to the user"""
+        return VideoAsset.objects.select_related(
+            'owner', 'school', 'reviewed_by'
+        ).filter(
+            school=self.request.user.school
+        )
+    
+    def get_object(self):
+        """Get video with permission check"""
+        video = super().get_object()
+        
+        # Check if user can access this video
+        if not (
+            video.owner == self.request.user or 
+            video.status == 'PUBLISHED' or
+            self.request.user.is_admin or 
+            self.request.user.is_school_admin
+        ):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You don't have permission to view this video.")
+        
+        return video
+
+
+class LibraryResourceDetailView(generics.RetrieveAPIView):
+    """
+    Detailed view of a resource
+    GET /api/library/resources/{id}/
+    """
+    serializer_class = ResourceSerializer
+    permission_classes = [IsTeacher]
+    
+    def get_queryset(self):
+        """Resources accessible to the user"""
+        return Resource.objects.select_related(
+            'owner', 'school'
+        ).filter(
+            school=self.request.user.school
+        )
+    
+    def get_object(self):
+        """Get resource with permission check"""
+        resource = super().get_object()
+        
+        # Check if user can access this resource
+        if not (
+            resource.owner == self.request.user or 
+            resource.status == 'PUBLISHED' or
+            self.request.user.is_admin or 
+            self.request.user.is_school_admin
+        ):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You don't have permission to view this resource.")
+        
+        return resource
+
+
+@api_view(['GET'])
+@permission_classes([IsTeacher])
+def teacher_dashboard(request):
+    """
+    Teacher dashboard with recent uploads, stats, and quick links
+    GET /api/dashboard/
+    """
+    try:
+        user = request.user
+        school = user.school
+        
+        # Calculate date ranges
+        now = timezone.now()
+        week_ago = now - timedelta(days=7)
+        month_ago = now - timedelta(days=30)
+        
+        # Recent uploads by user (last 5)
+        recent_uploads = VideoAsset.objects.filter(
+            owner=user
+        ).select_related('school').order_by('-created_at')[:5]
+        
+        recent_uploads_data = VideoAssetSerializer(recent_uploads, many=True).data
+        
+        # User's playlists with video counts
+        my_playlists = Playlist.objects.filter(
+            owner=user
+        ).annotate(
+            video_count=Count('playlistitem')
+        ).order_by('-updated_at')[:5]
+        
+        my_playlists_data = []
+        for playlist in my_playlists:
+            playlist_data = PlaylistSerializer(playlist).data
+            playlist_data['video_count'] = playlist.video_count
+            my_playlists_data.append(playlist_data)
+        
+        # School statistics
+        school_videos = VideoAsset.objects.filter(school=school, status='PUBLISHED')
+        school_resources = Resource.objects.filter(school=school, status='PUBLISHED')
+        
+        school_stats = {
+            'total_videos': school_videos.count(),
+            'total_resources': school_resources.count(),
+            'total_playlists': Playlist.objects.filter(school=school, is_public=True).count(),
+            'videos_this_week': school_videos.filter(created_at__gte=week_ago).count(),
+            'videos_this_month': school_videos.filter(created_at__gte=month_ago).count(),
+        }
+        
+        # User's personal stats
+        user_stats = {
+            'my_videos': VideoAsset.objects.filter(owner=user).count(),
+            'my_resources': Resource.objects.filter(owner=user).count(),
+            'my_playlists': Playlist.objects.filter(owner=user).count(),
+            'videos_uploaded_this_week': VideoAsset.objects.filter(
+                owner=user, created_at__gte=week_ago
+            ).count(),
+        }
+        
+        # Popular content in school (most viewed/accessed)
+        from .models import AssetView, DailyAssetStats
+        
+        # Get top videos by view count (last 30 days)
+        popular_videos = school_videos.annotate(
+            view_count=Count('views', filter=Q(views__viewed_at__gte=month_ago)),
+            unique_viewers=Count('views__user', distinct=True, filter=Q(views__viewed_at__gte=month_ago))
+        ).filter(
+            view_count__gt=0
+        ).order_by('-view_count', '-unique_viewers', '-created_at')[:5]
+        
+        # If no views, fall back to recently added to playlists
+        if not popular_videos.exists():
+            popular_videos = school_videos.annotate(
+                playlist_count=Count('playlistitem')
+            ).order_by('-playlist_count', '-created_at')[:5]
+        
+        popular_videos_data = VideoAssetSerializer(popular_videos, many=True).data
+        
+        # Add analytics data to each video
+        for video_data in popular_videos_data:
+            video_id = video_data['id']
+            video_analytics = AssetView.objects.filter(
+                asset_id=video_id,
+                viewed_at__gte=month_ago
+            ).aggregate(
+                total_views=Count('id'),
+                unique_viewers=Count('user', distinct=True),
+                avg_completion=Avg('completion_percentage')
+            )
+            video_data['analytics'] = {
+                'views_30d': video_analytics['total_views'] or 0,
+                'unique_viewers_30d': video_analytics['unique_viewers'] or 0,
+                'avg_completion_rate': round(video_analytics['avg_completion'] or 0, 2)
+            }
+        
+        # Recent activity in school
+        recent_school_videos = school_videos.order_by('-created_at')[:5]
+        recent_school_videos_data = VideoAssetSerializer(recent_school_videos, many=True).data
+        
+        # Quick links based on user's activity
+        quick_links = []
+        
+        # Add grade-specific links based on user's content
+        user_grades = VideoAsset.objects.filter(
+            owner=user
+        ).values_list('grade', flat=True).distinct()
+        
+        for grade in user_grades[:3]:  # Top 3 grades
+            if grade:
+                quick_links.append({
+                    'title': f'Grade {grade} Videos',
+                    'url': f'/api/library/videos/?grade={grade}',
+                    'description': f'Browse all Grade {grade} content'
+                })
+        
+        # Add topic-specific links
+        user_topics = VideoAsset.objects.filter(
+            owner=user
+        ).values_list('topic', flat=True).distinct()
+        
+        for topic in user_topics[:2]:  # Top 2 topics
+            if topic:
+                from .models import TOPIC_CHOICES
+                topic_display = dict(TOPIC_CHOICES).get(topic, topic)
+                quick_links.append({
+                    'title': topic_display,
+                    'url': f'/api/library/videos/?topic={topic}',
+                    'description': f'Explore {topic_display} resources'
+                })
+        
+        # Top performing user content (analytics)
+        user_top_videos = VideoAsset.objects.filter(
+            owner=user,
+            status='PUBLISHED'
+        ).annotate(
+            view_count=Count('views', filter=Q(views__viewed_at__gte=month_ago)),
+            unique_viewers=Count('views__user', distinct=True, filter=Q(views__viewed_at__gte=month_ago))
+        ).filter(
+            view_count__gt=0
+        ).order_by('-view_count')[:3]
+        
+        user_top_videos_data = VideoAssetSerializer(user_top_videos, many=True).data
+        
+        # Add analytics to user's top videos
+        for video_data in user_top_videos_data:
+            video_id = video_data['id']
+            video_analytics = AssetView.objects.filter(
+                asset_id=video_id,
+                viewed_at__gte=month_ago
+            ).aggregate(
+                total_views=Count('id'),
+                unique_viewers=Count('user', distinct=True),
+                total_watch_time=Sum('duration_watched'),
+                avg_completion=Avg('completion_percentage')
+            )
+            video_data['analytics'] = {
+                'views_30d': video_analytics['total_views'] or 0,
+                'unique_viewers_30d': video_analytics['unique_viewers'] or 0,
+                'total_watch_time': video_analytics['total_watch_time'] or 0,
+                'avg_completion_rate': round(video_analytics['avg_completion'] or 0, 2)
+            }
+        
+        # Recent downloads analytics
+        from .models import AssetDownload
+        recent_downloads = AssetDownload.objects.filter(
+            resource__school=school,
+            downloaded_at__gte=week_ago
+        ).select_related('resource', 'user').order_by('-downloaded_at')[:5]
+        
+        recent_downloads_data = []
+        for download in recent_downloads:
+            recent_downloads_data.append({
+                'resource_title': download.resource.title,
+                'resource_type': download.resource.get_file_type_display(),
+                'user_name': download.user.get_full_name(),
+                'downloaded_at': download.downloaded_at,
+                'file_size': download.resource.file_size_formatted
+            })
+        
+        # Analytics summary
+        analytics_summary = {
+            'total_video_views': AssetView.objects.filter(
+                asset__school=school,
+                viewed_at__gte=month_ago
+            ).count(),
+            'total_resource_downloads': AssetDownload.objects.filter(
+                resource__school=school,
+                downloaded_at__gte=month_ago
+            ).count(),
+            'most_active_day': AssetView.objects.filter(
+                asset__school=school,
+                viewed_at__gte=week_ago
+            ).extra(
+                select={'day': 'DATE(viewed_at)'}
+            ).values('day').annotate(
+                view_count=Count('id')
+            ).order_by('-view_count').first(),
+            'engagement_rate': 0.0  # Placeholder for engagement calculation
+        }
+        
+        # Calculate engagement rate (views per published video)
+        published_video_count = school_videos.count()
+        if published_video_count > 0:
+            analytics_summary['engagement_rate'] = round(
+                analytics_summary['total_video_views'] / published_video_count, 2
+            )
+        
+        # Compile dashboard data
+        dashboard_data = {
+            'user_info': {
+                'name': user.get_full_name(),
+                'role': user.get_role_display(),
+                'school': school.name,
+            },
+            'recent_uploads': recent_uploads_data,
+            'my_playlists': my_playlists_data,
+            'school_stats': school_stats,
+            'user_stats': user_stats,
+            'popular_content': popular_videos_data,
+            'recent_school_content': recent_school_videos_data,
+            'my_top_content': user_top_videos_data,
+            'recent_downloads': recent_downloads_data,
+            'analytics_summary': analytics_summary,
+            'quick_links': quick_links,
+            'generated_at': now.isoformat(),
+        }
+        
+        logger.info(f"Generated dashboard for user {user.id}")
+        
+        return Response(dashboard_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Dashboard generation failed for user {request.user.id}: {e}")
+        return Response(
+            {'error': 'Failed to generate dashboard', 'message': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsTeacher])
+def library_stats(request):
+    """
+    Library statistics and metadata
+    GET /api/library/stats/
+    """
+    try:
+        user = request.user
+        school = user.school
+        
+        # Get published content counts by category
+        videos_by_grade = VideoAsset.objects.filter(
+            school=school, status='PUBLISHED'
+        ).values('grade').annotate(count=Count('id')).order_by('grade')
+        
+        videos_by_topic = VideoAsset.objects.filter(
+            school=school, status='PUBLISHED'
+        ).values('topic').annotate(count=Count('id')).order_by('topic')
+        
+        resources_by_type = Resource.objects.filter(
+            school=school, status='PUBLISHED'
+        ).values('file_type').annotate(count=Count('id')).order_by('file_type')
+        
+        # Most active teachers
+        active_teachers = User.objects.filter(
+            school=school,
+            role__in=['TEACHER', 'SCHOOL_ADMIN']
+        ).annotate(
+            video_count=Count('videoasset', filter=Q(videoasset__status='PUBLISHED')),
+            resource_count=Count('resource', filter=Q(resource__status='PUBLISHED'))
+        ).filter(
+            models.Q(video_count__gt=0) | models.Q(resource_count__gt=0)
+        ).order_by('-video_count', '-resource_count')[:10]
+        
+        active_teachers_data = []
+        for teacher in active_teachers:
+            active_teachers_data.append({
+                'name': teacher.get_full_name(),
+                'video_count': teacher.video_count,
+                'resource_count': teacher.resource_count,
+                'total_content': teacher.video_count + teacher.resource_count
+            })
+        
+        stats_data = {
+            'videos_by_grade': list(videos_by_grade),
+            'videos_by_topic': list(videos_by_topic),
+            'resources_by_type': list(resources_by_type),
+            'active_teachers': active_teachers_data,
+            'total_published_videos': VideoAsset.objects.filter(
+                school=school, status='PUBLISHED'
+            ).count(),
+            'total_published_resources': Resource.objects.filter(
+                school=school, status='PUBLISHED'
+            ).count(),
+            'total_public_playlists': Playlist.objects.filter(
+                school=school, is_public=True
+            ).count(),
+        }
+        
+        return Response(stats_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Library stats failed for user {request.user.id}: {e}")
+        return Response(
+            {'error': 'Failed to generate library stats', 'message': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+

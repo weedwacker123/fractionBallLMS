@@ -31,6 +31,13 @@
                 
                 <div class="flex items-center space-x-4">
                     {% if user.is_authenticated %}
+                        <!-- Navigation Links -->
+                        <nav class="hidden md:flex space-x-4">
+                            <a href="/dashboard/" class="text-sm text-secondary-700 hover:text-primary-600">Dashboard</a>
+                            <a href="/library/" class="text-sm text-secondary-700 hover:text-primary-600">Library</a>
+                            <a href="/upload/" class="text-sm text-secondary-700 hover:text-primary-600">Upload</a>
+                        </nav>
+                        
                         <span class="text-sm text-secondary-600">
                             Welcome, {{ user.get_full_name|default:user.username }}
                         </span>
@@ -62,22 +69,32 @@
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div class="bg-primary-50 rounded-lg p-6">
-                        <h3 class="font-semibold text-primary-900 mb-2">Upload Content</h3>
+                        <h3 class="font-semibold text-primary-900 mb-2">Teacher Dashboard</h3>
                         <p class="text-sm text-primary-700 mb-4">
-                            Upload videos and resources for your classroom.
+                            View your recent uploads, playlists, and school activity.
                         </p>
-                        <a href="/upload/" class="btn btn-primary text-sm">
-                            Upload Files
+                        <a href="/dashboard/" class="btn btn-primary text-sm">
+                            Go to Dashboard
                         </a>
                     </div>
                     
                     <div class="bg-blue-50 rounded-lg p-6">
-                        <h3 class="font-semibold text-blue-900 mb-2">API Documentation</h3>
+                        <h3 class="font-semibold text-blue-900 mb-2">Content Library</h3>
                         <p class="text-sm text-blue-700 mb-4">
-                            Explore the REST API endpoints and test them interactively.
+                            Browse and search videos, resources, and playlists.
                         </p>
-                        <a href="/api/docs/" class="btn bg-blue-600 text-white hover:bg-blue-700 text-sm">
-                            View API Docs
+                        <a href="/library/" class="btn bg-blue-600 text-white hover:bg-blue-700 text-sm">
+                            Browse Library
+                        </a>
+                    </div>
+                    
+                    <div class="bg-purple-50 rounded-lg p-6">
+                        <h3 class="font-semibold text-purple-900 mb-2">Upload Content</h3>
+                        <p class="text-sm text-purple-700 mb-4">
+                            Upload videos and resources for your classroom.
+                        </p>
+                        <a href="/upload/" class="btn bg-purple-600 text-white hover:bg-purple-700 text-sm">
+                            Upload Files
                         </a>
                     </div>
                     
@@ -90,15 +107,13 @@
                             Admin Panel
                         </a>
                     </div>
-                    
-                    <div class="bg-green-50 rounded-lg p-6">
-                        <h3 class="font-semibold text-green-900 mb-2">Health Check</h3>
-                        <p class="text-sm text-green-700 mb-4">
-                            Verify that all system components are running properly.
-                        </p>
-                        <a href="/api/healthz/" class="btn bg-green-600 text-white hover:bg-green-700 text-sm">
-                            Check Status
-                        </a>
+                </div>
+                
+                <!-- Additional Links -->
+                <div class="mt-8 text-center">
+                    <div class="inline-flex space-x-6 text-sm">
+                        <a href="/api/docs/" class="text-primary-600 hover:text-primary-500">API Documentation</a>
+                        <a href="/api/healthz/" class="text-green-600 hover:text-green-500">Health Check</a>
                     </div>
                 </div>
             </div>

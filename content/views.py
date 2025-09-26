@@ -284,7 +284,7 @@ def upload_complete(request):
 @permission_classes([IsTeacher])
 def generate_resource_download_url(request, resource_id):
     """
-    Generate signed download URL for a resource (not videos)
+    Generate signed download URL for a resource (not videos) with tracking
     POST /api/resources/{id}/download/
     """
     try:
@@ -316,6 +316,43 @@ def generate_resource_download_url(request, resource_id):
             expires_in_hours=24
         )
         
+        # Track download
+        from .models import AssetDownload, AuditLog
+        
+        # Get client info
+        def get_client_ip(request):
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                ip = x_forwarded_for.split(',')[0]
+            else:
+                ip = request.META.get('REMOTE_ADDR')
+            return ip
+        
+        # Create download record
+        download_record = AssetDownload.objects.create(
+            resource=resource,
+            user=request.user,
+            file_size=resource.file_size,
+            download_completed=True,  # Assume completed for signed URLs
+            ip_address=get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')
+        )
+        
+        # Log download action
+        AuditLog.objects.create(
+            action='RESOURCE_DOWNLOADED',
+            user=request.user,
+            metadata={
+                'resource_id': str(resource.id),
+                'resource_title': resource.title,
+                'resource_type': resource.file_type,
+                'file_size': resource.file_size,
+                'download_id': str(download_record.id)
+            },
+            ip_address=get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')
+        )
+        
         logger.info(
             f"Generated download URL for resource {resource_id} by user {request.user.id}"
         )
@@ -323,7 +360,8 @@ def generate_resource_download_url(request, resource_id):
         return Response({
             'download_url': download_url,
             'expires_in_hours': 24,
-            'filename': resource.title
+            'filename': resource.title,
+            'download_id': str(download_record.id)
         })
         
     except Resource.DoesNotExist:
