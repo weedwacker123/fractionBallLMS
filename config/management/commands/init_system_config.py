@@ -308,3 +308,13 @@ class Command(BaseCommand):
                 self.stdout.write(f'  🔄 Updated feature flag: {flag.display_name}')
         
         self.stdout.write(f'🚩 Feature flags: {created_count} created, {updated_count} updated')
+
+
+
+
+
+
+
+
+
+

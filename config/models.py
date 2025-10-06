@@ -327,3 +327,12 @@ class ConfigChangeLog(models.Model):
     
     def __str__(self):
         return f"{self.config.name} changed by {self.changed_by} at {self.changed_at}"
+
+
+
+
+
+
+
+
+

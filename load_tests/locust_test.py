@@ -306,3 +306,13 @@ if __name__ == "__main__":
     print("Usage: locust -f load_tests/locust_test.py --host=http://localhost:8000")
     
     # You can add command line argument parsing here if needed
+
+
+
+
+
+
+
+
+
+

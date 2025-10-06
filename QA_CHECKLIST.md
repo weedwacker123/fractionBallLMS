@@ -293,3 +293,13 @@
 - Security testing should include penetration testing for production releases
 
 **Deployment Approval:** Only proceed with deployment when all critical items are checked and signed off by respective teams.
+
+
+
+
+
+
+
+
+
+

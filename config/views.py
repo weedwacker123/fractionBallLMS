@@ -385,3 +385,12 @@ def config_dashboard(request):
             {'error': 'Failed to generate dashboard'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+
+
+
+
+
+
+

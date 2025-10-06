@@ -34,7 +34,7 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     // Allow authenticated users to upload to their designated paths
-    match /videos/{timestamp}/{filename} {
+    match /videos/{timePrefix}/{filename} {
       // Allow uploads via signed URLs (PUT requests)
       allow write: if request.auth != null 
         && request.method == 'put'
@@ -46,7 +46,7 @@ service firebase.storage {
       allow read: if false;  // No direct downloads for videos
     }
     
-    match /resources/{timestamp}/{filename} {
+    match /resources/{timePrefix}/{filename} {
       // Allow uploads via signed URLs
       allow write: if request.auth != null 
         && request.method == 'put'
@@ -64,7 +64,7 @@ service firebase.storage {
       allow read: if request.auth != null;
     }
     
-    match /thumbnails/{timestamp}/{filename} {
+    match /thumbnails/{timePrefix}/{filename} {
       // Allow thumbnail uploads
       allow write: if request.auth != null 
         && request.method == 'put'
@@ -146,12 +146,41 @@ export const auth = getAuth(app);
 
 ## 8. Storage Lifecycle Rules (Cost Optimization)
 
-Set up lifecycle rules to automatically delete old files:
+Set up lifecycle rules to automatically manage files and reduce costs by 50-70%:
 
-1. Go to **Storage** > **Rules**
-2. Add lifecycle rules:
-   - Delete uploaded files older than 90 days if not referenced in database
-   - Move infrequently accessed files to coldline storage after 30 days
+### Access Google Cloud Console (not Firebase Console)
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Select your `fractionball-lms` project
+3. Navigate to **Storage** → **Buckets**
+4. Click on your Firebase storage bucket (e.g., `fractionball-lms.appspot.com`)
+5. Click the **"Lifecycle"** tab
+
+### Create Cost-Optimizing Rules
+**Rule 1: Move videos to Coldline storage after 30 days**
+- Action: "Set storage class to Coldline"
+- Condition: Age 30 days, prefix `videos/`
+- Savings: ~80% storage cost for old videos
+
+**Rule 2: Move resources to Nearline storage after 60 days** 
+- Action: "Set storage class to Nearline"
+- Condition: Age 60 days, prefix `resources/`
+- Savings: ~50% storage cost for old resources
+
+**Rule 3: Delete temporary files after 7 days**
+- Action: "Delete object"
+- Condition: Age 7 days, prefix `temp/`
+- Cleanup: Remove failed/incomplete uploads
+
+**Rule 4: Archive thumbnails after 90 days**
+- Action: "Set storage class to Archive" 
+- Condition: Age 90 days, prefix `thumbnails/`
+- Savings: ~94% storage cost for old thumbnails
+
+### Expected Cost Savings
+- **Before:** $20.48/month for 1TB
+- **After:** $7.91/month for 1TB (61% savings)
+
+📋 **Detailed instructions:** See `STEP_8_STORAGE_LIFECYCLE_GUIDE.md`
 
 ## 9. Monitoring and Alerts
 

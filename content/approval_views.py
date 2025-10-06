@@ -441,3 +441,12 @@ def my_content_status(request):
             {'error': 'Failed to generate content status overview', 'message': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+
+
+
+
+
+
+

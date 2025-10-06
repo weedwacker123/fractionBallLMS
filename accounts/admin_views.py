@@ -457,3 +457,9 @@ def admin_dashboard(request):
             {'error': 'Failed to generate dashboard', 'message': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+
+
+
+

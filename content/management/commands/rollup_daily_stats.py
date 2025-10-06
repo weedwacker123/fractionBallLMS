@@ -160,3 +160,9 @@ class Command(BaseCommand):
             self.stdout.write(
                 f'🗑️  Cleaned up {deleted_count} old daily stats records'
             )
+
+
+
+
+
+

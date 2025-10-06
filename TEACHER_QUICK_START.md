@@ -334,3 +334,13 @@ We're excited to support your teaching journey. Remember, great content takes ti
 
 **Need Help?** Contact your school administrator or use the platform's help feature.  
 **Version:** 1.0 | **Last Updated:** December 2024
+
+
+
+
+
+
+
+
+
+

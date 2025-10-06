@@ -275,40 +275,13 @@ def teacher_dashboard(request):
         }
         
         # Popular content in school (most viewed/accessed)
-        from .models import AssetView, DailyAssetStats
-        
-        # Get top videos by view count (last 30 days)
         popular_videos = school_videos.annotate(
-            view_count=Count('views', filter=Q(views__viewed_at__gte=month_ago)),
-            unique_viewers=Count('views__user', distinct=True, filter=Q(views__viewed_at__gte=month_ago))
-        ).filter(
-            view_count__gt=0
-        ).order_by('-view_count', '-unique_viewers', '-created_at')[:5]
-        
-        # If no views, fall back to recently added to playlists
-        if not popular_videos.exists():
-            popular_videos = school_videos.annotate(
-                playlist_count=Count('playlistitem')
-            ).order_by('-playlist_count', '-created_at')[:5]
+            # This would typically use view counts from analytics
+            # For now, we'll use creation date as a proxy
+            popularity_score=Count('playlistitem')
+        ).order_by('-popularity_score', '-created_at')[:5]
         
         popular_videos_data = VideoAssetSerializer(popular_videos, many=True).data
-        
-        # Add analytics data to each video
-        for video_data in popular_videos_data:
-            video_id = video_data['id']
-            video_analytics = AssetView.objects.filter(
-                asset_id=video_id,
-                viewed_at__gte=month_ago
-            ).aggregate(
-                total_views=Count('id'),
-                unique_viewers=Count('user', distinct=True),
-                avg_completion=Avg('completion_percentage')
-            )
-            video_data['analytics'] = {
-                'views_30d': video_analytics['total_views'] or 0,
-                'unique_viewers_30d': video_analytics['unique_viewers'] or 0,
-                'avg_completion_rate': round(video_analytics['avg_completion'] or 0, 2)
-            }
         
         # Recent activity in school
         recent_school_videos = school_videos.order_by('-created_at')[:5]
@@ -345,83 +318,6 @@ def teacher_dashboard(request):
                     'description': f'Explore {topic_display} resources'
                 })
         
-        # Top performing user content (analytics)
-        user_top_videos = VideoAsset.objects.filter(
-            owner=user,
-            status='PUBLISHED'
-        ).annotate(
-            view_count=Count('views', filter=Q(views__viewed_at__gte=month_ago)),
-            unique_viewers=Count('views__user', distinct=True, filter=Q(views__viewed_at__gte=month_ago))
-        ).filter(
-            view_count__gt=0
-        ).order_by('-view_count')[:3]
-        
-        user_top_videos_data = VideoAssetSerializer(user_top_videos, many=True).data
-        
-        # Add analytics to user's top videos
-        for video_data in user_top_videos_data:
-            video_id = video_data['id']
-            video_analytics = AssetView.objects.filter(
-                asset_id=video_id,
-                viewed_at__gte=month_ago
-            ).aggregate(
-                total_views=Count('id'),
-                unique_viewers=Count('user', distinct=True),
-                total_watch_time=Sum('duration_watched'),
-                avg_completion=Avg('completion_percentage')
-            )
-            video_data['analytics'] = {
-                'views_30d': video_analytics['total_views'] or 0,
-                'unique_viewers_30d': video_analytics['unique_viewers'] or 0,
-                'total_watch_time': video_analytics['total_watch_time'] or 0,
-                'avg_completion_rate': round(video_analytics['avg_completion'] or 0, 2)
-            }
-        
-        # Recent downloads analytics
-        from .models import AssetDownload
-        recent_downloads = AssetDownload.objects.filter(
-            resource__school=school,
-            downloaded_at__gte=week_ago
-        ).select_related('resource', 'user').order_by('-downloaded_at')[:5]
-        
-        recent_downloads_data = []
-        for download in recent_downloads:
-            recent_downloads_data.append({
-                'resource_title': download.resource.title,
-                'resource_type': download.resource.get_file_type_display(),
-                'user_name': download.user.get_full_name(),
-                'downloaded_at': download.downloaded_at,
-                'file_size': download.resource.file_size_formatted
-            })
-        
-        # Analytics summary
-        analytics_summary = {
-            'total_video_views': AssetView.objects.filter(
-                asset__school=school,
-                viewed_at__gte=month_ago
-            ).count(),
-            'total_resource_downloads': AssetDownload.objects.filter(
-                resource__school=school,
-                downloaded_at__gte=month_ago
-            ).count(),
-            'most_active_day': AssetView.objects.filter(
-                asset__school=school,
-                viewed_at__gte=week_ago
-            ).extra(
-                select={'day': 'DATE(viewed_at)'}
-            ).values('day').annotate(
-                view_count=Count('id')
-            ).order_by('-view_count').first(),
-            'engagement_rate': 0.0  # Placeholder for engagement calculation
-        }
-        
-        # Calculate engagement rate (views per published video)
-        published_video_count = school_videos.count()
-        if published_video_count > 0:
-            analytics_summary['engagement_rate'] = round(
-                analytics_summary['total_video_views'] / published_video_count, 2
-            )
-        
         # Compile dashboard data
         dashboard_data = {
             'user_info': {
@@ -435,9 +331,6 @@ def teacher_dashboard(request):
             'user_stats': user_stats,
             'popular_content': popular_videos_data,
             'recent_school_content': recent_school_videos_data,
-            'my_top_content': user_top_videos_data,
-            'recent_downloads': recent_downloads_data,
-            'analytics_summary': analytics_summary,
             'quick_links': quick_links,
             'generated_at': now.isoformat(),
         }

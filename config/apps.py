@@ -5,3 +5,12 @@ class ConfigConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'config'
     verbose_name = 'System Configuration'
+
+
+
+
+
+
+
+
+
