@@ -113,22 +113,34 @@ TEMPLATES = [
 WSGI_APPLICATION = 'fractionball.wsgi.application'
 
 # Database
+# Force SQLite for local development (no Docker or PostgreSQL required)
 DATABASES = {
-    'default': dj_database_url.parse(
-        config('DATABASE_URL', default='sqlite:///db.sqlite3')
-    )
-}
-
-# Redis Cache
-CACHES = {
     'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': config('REDIS_URL', default='redis://localhost:6379/0'),
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# Redis Cache (use dummy cache for local development without Redis)
+REDIS_URL = config('REDIS_URL', default='')
+
+if REDIS_URL and not DEBUG:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            }
+        }
+    }
+else:
+    # Use dummy cache for local development (no Redis required)
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        }
+    }
 
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'

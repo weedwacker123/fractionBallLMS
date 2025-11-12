@@ -4,6 +4,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
+  OAuthProvider,
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail
@@ -14,6 +15,12 @@ import { auth } from './firebase-config.js';
 const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope('email');
 googleProvider.addScope('profile');
+
+// Microsoft Auth Provider
+const microsoftProvider = new OAuthProvider('microsoft.com');
+microsoftProvider.addScope('email');
+microsoftProvider.addScope('profile');
+microsoftProvider.addScope('openid');
 
 // Sign in with email and password
 export const signInWithEmail = async (email, password) => {
@@ -44,6 +51,22 @@ export const signInWithGoogle = async () => {
     return result.user;
   } catch (error) {
     console.error('Error signing in with Google:', error);
+    throw error;
+  }
+};
+
+// Sign in with Microsoft
+export const signInWithMicrosoft = async () => {
+  try {
+    const result = await signInWithPopup(auth, microsoftProvider);
+    // Microsoft credential
+    const credential = OAuthProvider.credentialFromResult(result);
+    const accessToken = credential?.accessToken;
+    const idToken = credential?.idToken;
+    
+    return result.user;
+  } catch (error) {
+    console.error('Error signing in with Microsoft:', error);
     throw error;
   }
 };

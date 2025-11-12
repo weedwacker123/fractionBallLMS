@@ -10,14 +10,28 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 # Initialize Firebase Admin SDK
+FIREBASE_INITIALIZED = False
 if not firebase_admin._apps:
     try:
-        # Create credentials from settings
-        cred = credentials.Certificate(settings.FIREBASE_CONFIG)
-        firebase_admin.initialize_app(cred)
-        logger.info("Firebase Admin SDK initialized successfully")
+        # Check if Firebase config has valid credentials
+        project_id = settings.FIREBASE_CONFIG.get('project_id', '')
+        private_key = settings.FIREBASE_CONFIG.get('private_key', '')
+        
+        if project_id and private_key and len(private_key) > 100:  # Basic validation
+            try:
+                # Create credentials from settings
+                cred = credentials.Certificate(settings.FIREBASE_CONFIG)
+                firebase_admin.initialize_app(cred)
+                FIREBASE_INITIALIZED = True
+                logger.info("✅ Firebase Admin SDK initialized successfully")
+            except Exception as init_error:
+                logger.warning(f"⚠️  Firebase initialization failed: {str(init_error)[:100]}...")
+                logger.warning("Authentication will use frontend Firebase only")
+        else:
+            logger.warning("⚠️  Firebase credentials not properly configured in .env")
+            logger.warning("Set FIREBASE_PROJECT_ID and FIREBASE_PRIVATE_KEY in your .env file")
     except Exception as e:
-        logger.error(f"Failed to initialize Firebase Admin SDK: {e}")
+        logger.warning(f"⚠️  Firebase setup error: {str(e)[:100]}...")
 
 
 class FirebaseAuthentication(authentication.BaseAuthentication):

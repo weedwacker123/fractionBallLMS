@@ -42,7 +42,9 @@ class User(AbstractUser):
     school = models.ForeignKey(
         School, 
         on_delete=models.CASCADE,
-        help_text="School/District the user belongs to"
+        null=True,
+        blank=True,
+        help_text="School/District the user belongs to (optional for development)"
     )
     
     # Profile information

@@ -2,6 +2,35 @@
 
 A production-grade Django-based Learning Management System for Fraction Ball's math education content, designed specifically for teachers to access, organize, and share video lessons and resources.
 
+## 🎨 V4 Interface (NEW!)
+
+The V4 interface is a completely redesigned, activity-focused experience based on the latest Figma mockups. It features:
+
+- **Modern Activity Cards**: Browse Field Cone Frenzy, Bottle-Cap Bonanza, and Simon Says & Switch activities
+- **Enhanced Navigation**: Clean header with HOME, COMMUNITY, FAQ
+- **Detailed Activity Pages**: Prerequisites, learning objectives, materials, game rules, and resources
+- **Community Features**: Discussion forums, resource sharing, and collaboration tools
+- **Responsive Design**: Optimized for desktop, tablet, and mobile
+
+### Quick Start with V4
+
+```bash
+# Build V4 interface
+./scripts/build_v4.sh
+
+# Or manually:
+npm install
+npm run build-css-prod
+python manage.py collectstatic --noinput
+python manage.py runserver
+```
+
+Visit `http://localhost:8000/` to see the V4 interface!
+
+📖 **Full V4 Documentation**: See [V4_IMPLEMENTATION.md](V4_IMPLEMENTATION.md)
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites

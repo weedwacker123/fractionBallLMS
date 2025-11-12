@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+
+{% block title %}Community - Fraction Ball{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div class="text-center mb-12">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">Community</h1>
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+            Connect with other educators, share experiences, and collaborate on Fraction Ball activities.
+        </p>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+        <!-- Discussion Forums -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+            <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
+                <svg class="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"/>
+                    <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"/>
+                </svg>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Discussion Forums</h3>
+            <p class="text-gray-600 mb-4">Ask questions, share tips, and discuss best practices with fellow teachers.</p>
+            <a href="#" class="text-red-600 hover:text-red-700 font-medium">
+                Visit Forums →
+            </a>
+        </div>
+        
+        <!-- Resource Sharing -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z"/>
+                    <path d="M3 8a2 2 0 012-2v10h8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+                </svg>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Resource Sharing</h3>
+            <p class="text-gray-600 mb-4">Upload and download lesson plans, worksheets, and other helpful materials.</p>
+            <a href="#" class="text-red-600 hover:text-red-700 font-medium">
+                Browse Resources →
+            </a>
+        </div>
+        
+        <!-- Success Stories -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Success Stories</h3>
+            <p class="text-gray-600 mb-4">Read inspiring stories from teachers using Fraction Ball in their classrooms.</p>
+            <a href="#" class="text-red-600 hover:text-red-700 font-medium">
+                Read Stories →
+            </a>
+        </div>
+    </div>
+    
+    <!-- Recent Posts -->
+    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Recent Community Posts</h2>
+        <div class="space-y-6">
+            <div class="border-b border-gray-200 pb-6">
+                <div class="flex items-start space-x-4">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-lg font-semibold text-gray-900">Tips for Managing Field Cone Frenzy</h4>
+                            <span class="text-sm text-gray-500">2 days ago</span>
+                        </div>
+                        <p class="text-gray-600 mb-3">
+                            I've been using Field Cone Frenzy with my 5th graders and wanted to share some management strategies that have worked well...
+                        </p>
+                        <div class="flex items-center space-x-4 text-sm text-gray-500">
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"/>
+                                </svg>
+                                12 replies
+                            </span>
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+                                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
+                                </svg>
+                                234 views
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="border-b border-gray-200 pb-6">
+                <div class="flex items-start space-x-4">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-lg font-semibold text-gray-900">Adapting Activities for Different Grade Levels</h4>
+                            <span class="text-sm text-gray-500">1 week ago</span>
+                        </div>
+                        <p class="text-gray-600 mb-3">
+                            Has anyone successfully adapted the Grade 5 activities for Grade 3 or 4 students? I'd love to hear your modifications...
+                        </p>
+                        <div class="flex items-center space-x-4 text-sm text-gray-500">
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"/>
+                                </svg>
+                                8 replies
+                            </span>
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+                                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
+                                </svg>
+                                156 views
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-8">
+            <a href="#" class="inline-flex items-center px-6 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">
+                Create New Post
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+
+
+
+
+
+

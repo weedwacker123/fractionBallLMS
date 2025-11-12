@@ -6,7 +6,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
-from api.views import home
+from api.views import home as api_home
 from django.shortcuts import render
 from config import views as config_views
 
@@ -20,16 +20,22 @@ def dashboard_view(request):
     return render(request, 'dashboard.html')
 
 urlpatterns = [
-    # Home
-    path('', home, name='home'),
+    # V4 Interface (Main public-facing site)
+    path('', include('content.v4_urls')),
+    
+    # Authentication
+    path('accounts/', include('accounts.urls')),
+    
+    # Legacy/Admin views
+    path('api-home/', api_home, name='api-home'),
     
     # Upload UI
     path('upload/', upload_view, name='upload'),
     
-    # Library UI
-    path('library/', library_view, name='library'),
+    # Library UI (Legacy)
+    path('library/', library_view, name='library-old'),
     
-    # Dashboard UI
+    # Dashboard UI (Teacher)
     path('dashboard/', dashboard_view, name='dashboard'),
     
     # Admin
