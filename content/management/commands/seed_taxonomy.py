@@ -41,7 +41,7 @@ class Command(BaseCommand):
 
         # Get existing data
         schools = list(School.objects.all())
-        teachers = list(User.objects.filter(role__in=['TEACHER', 'SCHOOL_ADMIN']))
+        teachers = list(User.objects.filter(role__in=['TEACHER', 'SCHOOL_ADMIN'], school__isnull=False))
 
         if not schools:
             self.stdout.write(self.style.ERROR('No schools found. Run seed_data first.'))

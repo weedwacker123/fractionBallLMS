@@ -5,11 +5,22 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from api.views import home as api_home
 from django.shortcuts import render
 from config import views as config_views
 from content.simple_upload_views import simple_upload_view, my_uploads_view, delete_video, delete_resource
+
+
+def health_check(request):
+    """Health check endpoint for Cloud Run and load balancers"""
+    return JsonResponse({
+        'status': 'healthy',
+        'service': 'fractionball-backend',
+        'version': '1.0.0'
+    })
+
 
 def upload_view(request):
     return render(request, 'upload.html')
@@ -21,6 +32,9 @@ def dashboard_view(request):
     return render(request, 'dashboard.html')
 
 urlpatterns = [
+    # Health check for Cloud Run
+    path('health/', health_check, name='health-check'),
+    
     # V4 Interface (Main public-facing site)
     path('', include('content.v4_urls')),
     

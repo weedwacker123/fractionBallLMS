@@ -40,36 +40,39 @@
     <!-- Navigation -->
     <nav class="bg-white shadow-sm border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-20">
+            <div class="flex justify-between items-center h-16 sm:h-20">
                 <!-- Logo and Brand -->
-                <div class="flex items-center space-x-3">
-                    <div class="flex items-center space-x-2">
-                        <svg class="w-10 h-10 text-red-500" viewBox="0 0 40 40" fill="currentColor">
-                            <circle cx="20" cy="20" r="18" fill="#EF4444"/>
-                            <path d="M20 8 L32 20 L20 32 L8 20 Z" fill="white"/>
-                        </svg>
-                        <div>
-                            <span class="block text-xl font-bold text-gray-900 leading-tight">fraction</span>
-                            <span class="block text-xl font-bold text-red-600 leading-tight">ball</span>
-                        </div>
+                <a href="/" class="flex items-center space-x-2">
+                    <svg class="w-8 h-8 sm:w-10 sm:h-10 text-red-500" viewBox="0 0 40 40" fill="currentColor">
+                        <circle cx="20" cy="20" r="18" fill="#EF4444"/>
+                        <path d="M20 8 L32 20 L20 32 L8 20 Z" fill="white"/>
+                    </svg>
+                    <div class="hidden sm:block">
+                        <span class="block text-lg sm:text-xl font-bold text-gray-900 leading-tight">fraction</span>
+                        <span class="block text-lg sm:text-xl font-bold text-red-600 leading-tight">ball</span>
                     </div>
-                </div>
+                </a>
                 
-                <!-- Center Navigation -->
-                <div class="hidden md:flex items-center space-x-8">
-                    <a href="/" class="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors">HOME</a>
-                    <a href="/community/" class="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors">COMMUNITY</a>
-                    <a href="/faq/" class="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors">FAQ</a>
+                <!-- Center Navigation (Desktop) -->
+                <div class="hidden lg:flex items-center space-x-6">
+                    <a href="/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">HOME</a>
+                    <a href="/community/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">COMMUNITY</a>
+                    <a href="/faq/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">FAQ</a>
                     {% if user.is_authenticated %}
-                    <a href="/playlists/" class="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors">PLAYLISTS</a>
-                    <a href="/upload/" class="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors">UPLOAD</a>
-                    <a href="/my-uploads/" class="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors">MY UPLOADS</a>
-                    <a href="/analytics/" class="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors">ANALYTICS</a>
+                    <a href="/playlists/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">PLAYLISTS</a>
+                    <a href="/upload/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">UPLOAD</a>
+                    <a href="/analytics/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">ANALYTICS</a>
                     {% endif %}
                 </div>
                 
                 <!-- Right Side Icons -->
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <!-- Mobile Menu Button -->
+                    <button id="mobileMenuBtn" type="button" class="lg:hidden p-2 text-gray-600 hover:text-gray-900 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </button>
                     {% if user.is_authenticated %}
                         <!-- Notifications -->
                         <button class="p-2 text-gray-600 hover:text-gray-900 transition-colors relative">
@@ -110,6 +113,34 @@
                         </a>
                     {% endif %}
                 </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Navigation Menu -->
+        <div id="mobileMenu" class="hidden lg:hidden border-t border-gray-200">
+            <div class="px-4 py-3 space-y-1">
+                <a href="/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">Home</a>
+                <a href="/community/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">Community</a>
+                <a href="/faq/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">FAQ</a>
+                {% if user.is_authenticated %}
+                <div class="border-t border-gray-200 my-2"></div>
+                <a href="/playlists/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">My Playlists</a>
+                <a href="/upload/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">Upload Content</a>
+                <a href="/my-uploads/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">My Uploads</a>
+                <a href="/analytics/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">Analytics</a>
+                {% if user.is_staff %}
+                <a href="/admin/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">Admin Panel</a>
+                {% endif %}
+                <div class="border-t border-gray-200 my-2"></div>
+                <div class="px-3 py-2">
+                    <p class="text-sm font-medium text-gray-900">{{ user.get_full_name|default:user.username }}</p>
+                    <p class="text-xs text-gray-500">{{ user.email }}</p>
+                </div>
+                <a href="/accounts/logout/" class="block px-3 py-2 text-base font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg">Sign Out</a>
+                {% else %}
+                <div class="border-t border-gray-200 my-2"></div>
+                <a href="/accounts/login/" class="block px-3 py-2 text-base font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg text-center">Sign In</a>
+                {% endif %}
             </div>
         </div>
     </nav>
@@ -190,6 +221,27 @@
     </footer>
 
     {% block extra_body %}{% endblock %}
+    
+    <!-- Mobile Menu Toggle -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+            
+            if (mobileMenuBtn && mobileMenu) {
+                mobileMenuBtn.addEventListener('click', function() {
+                    mobileMenu.classList.toggle('hidden');
+                    // Toggle icon between hamburger and X
+                    const svg = mobileMenuBtn.querySelector('svg');
+                    if (mobileMenu.classList.contains('hidden')) {
+                        svg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>';
+                    } else {
+                        svg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>';
+                    }
+                });
+            }
+        });
+    </script>
     
     <!-- Firebase SDK and Authentication -->
     {% if user.is_authenticated %}

@@ -40,10 +40,27 @@ SESSION_COOKIE_AGE = config('SESSION_COOKIE_AGE', default=28800, cast=int)  # 8 
 CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = 'Lax'
+
+# Parse CSRF_TRUSTED_ORIGINS - supports comma, space, or semicolon as separators
+_csrf_origins_raw = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000')
+# Replace common separators with comma
+import re
+_csrf_origins_normalized = re.sub(r'[;\s]+', ',', _csrf_origins_raw)
 CSRF_TRUSTED_ORIGINS = [
-    origin.strip() for origin in config('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000').split(',')
+    origin.strip() for origin in _csrf_origins_normalized.split(',')
     if origin.strip()
 ]
+
+# Always include Firebase domains in production
+if not DEBUG:
+    _firebase_origins = [
+        'https://fractionball-lms.web.app',
+        'https://fractionball-lms.firebaseapp.com',
+        'https://fractionball-backend-110595744029.us-central1.run.app',
+    ]
+    for origin in _firebase_origins:
+        if origin not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(origin)
 
 # Content Security Policy
 CSP_DEFAULT_SRC = ("'self'",)

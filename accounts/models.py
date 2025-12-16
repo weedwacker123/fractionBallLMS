@@ -26,6 +26,7 @@ class User(AbstractUser):
     
     class Role(models.TextChoices):
         ADMIN = 'ADMIN', 'System Admin'
+        CONTENT_MANAGER = 'CONTENT_MANAGER', 'Content Manager'
         SCHOOL_ADMIN = 'SCHOOL_ADMIN', 'School Admin'
         TEACHER = 'TEACHER', 'Teacher'
     
@@ -72,6 +73,11 @@ class User(AbstractUser):
         return self.role == self.Role.ADMIN
 
     @property
+    def is_content_manager(self):
+        """Check if user is a content manager (can create/edit content without approval)"""
+        return self.role == self.Role.CONTENT_MANAGER
+
+    @property
     def is_school_admin(self):
         """Check if user is a school admin"""
         return self.role == self.Role.SCHOOL_ADMIN
@@ -80,6 +86,16 @@ class User(AbstractUser):
     def is_teacher(self):
         """Check if user is a teacher"""
         return self.role == self.Role.TEACHER
+
+    @property
+    def can_manage_content(self):
+        """Check if user can create/edit/delete content (Admin or Content Manager)"""
+        return self.role in [self.Role.ADMIN, self.Role.CONTENT_MANAGER]
+
+    @property
+    def has_cms_access(self):
+        """Check if user has access to CMS/Admin interface"""
+        return self.role in [self.Role.ADMIN, self.Role.CONTENT_MANAGER]
 
     def can_manage_school(self, school):
         """Check if user can manage a specific school"""

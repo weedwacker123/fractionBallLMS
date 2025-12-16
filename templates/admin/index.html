@@ -1,0 +1,130 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content %}
+<div id="content-main">
+    <!-- Welcome Banner -->
+    <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <h1 style="margin: 0 0 10px 0; font-size: 28px; font-weight: 700;">Welcome to Fraction Ball CMS</h1>
+        <p style="margin: 0; opacity: 0.9; font-size: 16px;">Manage your educational content, activities, and community</p>
+    </div>
+
+    <!-- Quick Stats -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
+        <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid #EF4444;">
+            <div style="color: #6b7280; font-size: 14px; margin-bottom: 5px;">Quick Actions</div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="{% url 'admin:content_activity_add' %}" style="background: #EF4444; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px;">+ New Activity</a>
+                <a href="{% url 'admin:content_videoasset_add' %}" style="background: #3b82f6; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px;">+ Upload Video</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Modules -->
+    {% if app_list %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
+            {% for app in app_list %}
+                <div class="module" style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="background: {% if app.app_label == 'content' %}#EF4444{% elif app.app_label == 'accounts' %}#3b82f6{% else %}#6b7280{% endif %}; padding: 15px 20px;">
+                        <h2 style="margin: 0; color: white; font-size: 16px; font-weight: 600;">
+                            {% if app.app_label == 'content' %}
+                                📚 {{ app.name }}
+                            {% elif app.app_label == 'accounts' %}
+                                👥 {{ app.name }}
+                            {% else %}
+                                ⚙️ {{ app.name }}
+                            {% endif %}
+                        </h2>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        {% for model in app.models %}
+                            <tr style="border-bottom: 1px solid #f3f4f6;">
+                                <td style="padding: 12px 20px;">
+                                    {% if model.admin_url %}
+                                        <a href="{{ model.admin_url }}" style="font-weight: 500; color: #1f2937; text-decoration: none;">
+                                            {% if model.object_name == 'Activity' %}📋
+                                            {% elif model.object_name == 'VideoAsset' %}🎬
+                                            {% elif model.object_name == 'Resource' %}📄
+                                            {% elif model.object_name == 'Playlist' %}📑
+                                            {% elif model.object_name == 'ForumPost' %}💬
+                                            {% elif model.object_name == 'ForumCategory' %}🏷️
+                                            {% elif model.object_name == 'User' %}👤
+                                            {% elif model.object_name == 'School' %}🏫
+                                            {% else %}📌{% endif %}
+                                            {{ model.name }}
+                                        </a>
+                                    {% else %}
+                                        {{ model.name }}
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 12px 20px; text-align: right;">
+                                    {% if model.add_url %}
+                                        <a href="{{ model.add_url }}" style="background: #10b981; color: white; padding: 4px 12px; border-radius: 4px; text-decoration: none; font-size: 12px; margin-right: 5px;">+ Add</a>
+                                    {% endif %}
+                                    {% if model.admin_url %}
+                                        <a href="{{ model.admin_url }}" style="background: #f3f4f6; color: #374151; padding: 4px 12px; border-radius: 4px; text-decoration: none; font-size: 12px;">View All</a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>{% translate "You don't have permission to view or edit anything." %}</p>
+    {% endif %}
+</div>
+
+<!-- Sidebar with Recent Actions -->
+<div id="content-related">
+    <div class="module" id="recent-actions-module" style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <h2 style="background: #1f2937; color: white; padding: 15px 20px; margin: 0; font-size: 14px;">📝 Recent Actions</h2>
+        {% load log %}
+        {% get_admin_log 10 as admin_log for_user user %}
+        {% if admin_log %}
+            <ul style="list-style: none; margin: 0; padding: 0;">
+                {% for entry in admin_log %}
+                    <li style="padding: 12px 20px; border-bottom: 1px solid #f3f4f6;">
+                        {% if entry.is_change %}
+                            <span style="color: #f59e0b;">✏️</span>
+                        {% elif entry.is_deletion %}
+                            <span style="color: #ef4444;">🗑️</span>
+                        {% else %}
+                            <span style="color: #10b981;">➕</span>
+                        {% endif %}
+                        {% if entry.is_deletion or not entry.get_admin_url %}
+                            <span style="color: #6b7280;">{{ entry.object_repr }}</span>
+                        {% else %}
+                            <a href="{{ entry.get_admin_url }}" style="color: #1f2937; text-decoration: none; font-weight: 500;">{{ entry.object_repr }}</a>
+                        {% endif %}
+                        <br>
+                        <span style="color: #9ca3af; font-size: 12px;">
+                            {% if entry.content_type %}
+                                {{ entry.content_type.name }}
+                            {% else %}
+                                Unknown
+                            {% endif %}
+                            - {{ entry.action_time|timesince }} ago
+                        </span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p style="padding: 20px; color: #6b7280; text-align: center;">No recent actions</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block sidebar %}
+{% endblock %}
+
+
+
+
+
+
+
+
+

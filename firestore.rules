@@ -1,0 +1,49 @@
+rules_version = '2';
+
+// Firestore Security Rules for Fraction Ball LMS
+// Note: Primary data storage is in Django/PostgreSQL backend
+// Firestore is used for real-time features only (future use)
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is admin
+    // Note: Admin status is managed in Django, this is for client-side checks only
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+    
+    // User presence/online status (real-time feature)
+    match /presence/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Real-time notifications (future feature)
+    match /notifications/{userId}/{notificationId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Deny all other access by default
+    // All main data operations go through Django backend
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+
+
+
+
+
+
+
+

@@ -14,6 +14,48 @@ class IsAdmin(permissions.BasePermission):
         )
 
 
+class IsContentManager(permissions.BasePermission):
+    """
+    Permission class for content managers (can manage content without approval)
+    As per TRD: Content managers can create, edit, delete content and publish directly
+    """
+    
+    def has_permission(self, request, view):
+        return (
+            request.user and 
+            request.user.is_authenticated and 
+            (request.user.is_admin or request.user.is_content_manager)
+        )
+
+
+class CanManageContent(permissions.BasePermission):
+    """
+    Permission class for users who can create/edit/delete content
+    Includes: Admin, Content Manager
+    """
+    
+    def has_permission(self, request, view):
+        return (
+            request.user and 
+            request.user.is_authenticated and 
+            request.user.can_manage_content
+        )
+
+
+class HasCMSAccess(permissions.BasePermission):
+    """
+    Permission class for users with CMS/Admin interface access
+    As per TRD: Only Admin and Content Manager have CMS access
+    """
+    
+    def has_permission(self, request, view):
+        return (
+            request.user and 
+            request.user.is_authenticated and 
+            request.user.has_cms_access
+        )
+
+
 class IsSchoolAdmin(permissions.BasePermission):
     """
     Permission class for school administrators
@@ -29,14 +71,14 @@ class IsSchoolAdmin(permissions.BasePermission):
 
 class IsTeacher(permissions.BasePermission):
     """
-    Permission class for teachers (includes school admins and system admins)
+    Permission class for teachers (includes all authenticated users with these roles)
     """
     
     def has_permission(self, request, view):
         return (
             request.user and 
             request.user.is_authenticated and 
-            request.user.role in ['TEACHER', 'SCHOOL_ADMIN', 'ADMIN']
+            request.user.role in ['TEACHER', 'SCHOOL_ADMIN', 'CONTENT_MANAGER', 'ADMIN']
         )
 
 

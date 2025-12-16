@@ -1,0 +1,74 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules for Fraction Ball LMS
+// All content requires authentication as per TRD requirements
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check file size (in bytes)
+    function isValidSize(maxSizeMB) {
+      return request.resource.size < maxSizeMB * 1024 * 1024;
+    }
+    
+    // Videos folder - 500MB max as per TRD
+    match /videos/{allPaths=**} {
+      // Anyone authenticated can read videos
+      allow read: if isAuthenticated();
+      
+      // Only authenticated users can upload videos (max 500MB)
+      allow write: if isAuthenticated() 
+                   && isValidSize(500)
+                   && request.resource.contentType.matches('video/.*');
+    }
+    
+    // Resources folder (PDFs, PowerPoints, Word docs) - 50MB max
+    match /resources/{allPaths=**} {
+      allow read: if isAuthenticated();
+      
+      allow write: if isAuthenticated()
+                   && isValidSize(50)
+                   && (request.resource.contentType == 'application/pdf'
+                       || request.resource.contentType.matches('application/vnd.ms-.*')
+                       || request.resource.contentType.matches('application/vnd.openxmlformats-.*')
+                       || request.resource.contentType == 'application/msword');
+    }
+    
+    // Lesson plans folder - PDFs only, 10MB max
+    match /lesson-plans/{allPaths=**} {
+      allow read: if isAuthenticated();
+      
+      allow write: if isAuthenticated()
+                   && isValidSize(10)
+                   && request.resource.contentType == 'application/pdf';
+    }
+    
+    // Thumbnails folder - Images only, 10MB max
+    match /thumbnails/{allPaths=**} {
+      allow read: if isAuthenticated();
+      
+      allow write: if isAuthenticated()
+                   && isValidSize(10)
+                   && request.resource.contentType.matches('image/.*');
+    }
+    
+    // Deny all other access by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+
+
+
+
+
+
+
+

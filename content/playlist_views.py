@@ -459,3 +459,90 @@ def get_user_playlists_json(request):
     return JsonResponse({
         'playlists': list(playlists)
     })
+
+
+# Alias for URL compatibility
+shared_playlist_view = view_shared_playlist
+
+
+def duplicate_shared_playlist(request, share_token):
+    """
+    Duplicate a playlist from a share link
+    """
+    try:
+        share = get_object_or_404(PlaylistShare, share_token=share_token, is_active=True)
+        
+        # Check if expired
+        if share.is_expired:
+            return JsonResponse({
+                'success': False,
+                'message': 'This share link has expired'
+            }, status=400)
+        
+        if not request.user.is_authenticated:
+            return JsonResponse({
+                'success': False,
+                'message': 'You must be logged in to duplicate a playlist'
+            }, status=401)
+        
+        original = share.playlist
+        
+        # Create duplicate
+        duplicate = Playlist.objects.create(
+            name=f"{original.name} (Copy)",
+            description=original.description,
+            owner=request.user,
+            school=request.user.school,
+            is_public=False
+        )
+        
+        # Copy all items
+        items = original.playlistitem_set.all().order_by('order')
+        for item in items:
+            PlaylistItem.objects.create(
+                playlist=duplicate,
+                video_asset=item.video_asset,
+                order=item.order,
+                notes=item.notes
+            )
+        
+        logger.info(f"Shared playlist duplicated: {original.id} -> {duplicate.id} by {request.user.username}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Playlist "{original.name}" duplicated successfully',
+            'playlist_id': str(duplicate.id),
+            'redirect_url': f'/playlists/{duplicate.id}/'
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to duplicate shared playlist: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Failed to duplicate playlist: {str(e)}'
+        }, status=500)
+
+
+@require_POST
+def track_video_view(request):
+    """
+    Track video view for analytics
+    """
+    try:
+        video_id = request.POST.get('video_id')
+        playlist_id = request.POST.get('playlist_id')
+        
+        # Tracking logic can be expanded here
+        logger.info(f"Video view tracked: video={video_id}, playlist={playlist_id}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'View tracked'
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to track video view: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Failed to track view: {str(e)}'
+        }, status=500)
