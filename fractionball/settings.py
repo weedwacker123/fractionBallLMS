@@ -40,7 +40,10 @@ SESSION_COOKIE_AGE = config('SESSION_COOKIE_AGE', default=28800, cast=int)  # 8 
 CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = 'Lax'
-CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='').split(',')
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip() for origin in config('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000').split(',')
+    if origin.strip()
+]
 
 # Content Security Policy
 CSP_DEFAULT_SRC = ("'self'",)
@@ -232,6 +235,20 @@ FIREBASE_CONFIG = {
     'client_x509_cert_url': config('FIREBASE_CLIENT_X509_CERT_URL', default=''),
 }
 
+# Firebase Storage Configuration
+FIREBASE_STORAGE_BUCKET = config('FIREBASE_STORAGE_BUCKET', default='')
+GOOGLE_APPLICATION_CREDENTIALS = config('GOOGLE_APPLICATION_CREDENTIALS', default='')
+
+# Storage Backend Configuration
+# Set to 'firebase' to enforce Firebase-only storage (recommended for production)
+# Set to 'local' to use local storage only (for development/testing)
+# Set to 'auto' to use Firebase with local fallback (legacy mode)
+STORAGE_BACKEND = config('STORAGE_BACKEND', default='firebase')
+
+# Set environment variable for Google Cloud SDK
+if GOOGLE_APPLICATION_CREDENTIALS and os.path.exists(GOOGLE_APPLICATION_CREDENTIALS):
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = GOOGLE_APPLICATION_CREDENTIALS
+
 # Logging
 LOGGING = {
     'version': 1,
@@ -263,3 +280,12 @@ LOGGING = {
 
 # Create logs directory
 os.makedirs(BASE_DIR / 'logs', exist_ok=True)
+
+# Initialize Firebase Admin SDK
+# This must be done after all settings are configured
+try:
+    import firebase_init
+except Exception as e:
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Could not initialize Firebase: {e}")

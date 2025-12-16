@@ -13,23 +13,47 @@ User = get_user_model()
 FIREBASE_INITIALIZED = False
 if not firebase_admin._apps:
     try:
-        # Check if Firebase config has valid credentials
-        project_id = settings.FIREBASE_CONFIG.get('project_id', '')
-        private_key = settings.FIREBASE_CONFIG.get('private_key', '')
+        # Try to use service account JSON file first (preferred method)
+        if hasattr(settings, 'GOOGLE_APPLICATION_CREDENTIALS') and settings.GOOGLE_APPLICATION_CREDENTIALS:
+            import os
+            if os.path.exists(settings.GOOGLE_APPLICATION_CREDENTIALS):
+                try:
+                    cred = credentials.Certificate(settings.GOOGLE_APPLICATION_CREDENTIALS)
+                    # Initialize with storage bucket if available
+                    options = {}
+                    if hasattr(settings, 'FIREBASE_STORAGE_BUCKET') and settings.FIREBASE_STORAGE_BUCKET:
+                        options['storageBucket'] = settings.FIREBASE_STORAGE_BUCKET
+                    
+                    firebase_admin.initialize_app(cred, options)
+                    FIREBASE_INITIALIZED = True
+                    logger.info("✅ Firebase Admin SDK initialized successfully with service account JSON")
+                except Exception as init_error:
+                    logger.warning(f"⚠️  Firebase initialization with JSON file failed: {str(init_error)[:100]}...")
         
-        if project_id and private_key and len(private_key) > 100:  # Basic validation
-            try:
-                # Create credentials from settings
-                cred = credentials.Certificate(settings.FIREBASE_CONFIG)
-                firebase_admin.initialize_app(cred)
-                FIREBASE_INITIALIZED = True
-                logger.info("✅ Firebase Admin SDK initialized successfully")
-            except Exception as init_error:
-                logger.warning(f"⚠️  Firebase initialization failed: {str(init_error)[:100]}...")
-                logger.warning("Authentication will use frontend Firebase only")
-        else:
-            logger.warning("⚠️  Firebase credentials not properly configured in .env")
-            logger.warning("Set FIREBASE_PROJECT_ID and FIREBASE_PRIVATE_KEY in your .env file")
+        # Fall back to environment variables if JSON file didn't work
+        if not FIREBASE_INITIALIZED:
+            # Check if Firebase config has valid credentials
+            project_id = settings.FIREBASE_CONFIG.get('project_id', '')
+            private_key = settings.FIREBASE_CONFIG.get('private_key', '')
+            
+            if project_id and private_key and len(private_key) > 100:  # Basic validation
+                try:
+                    # Create credentials from settings
+                    cred = credentials.Certificate(settings.FIREBASE_CONFIG)
+                    # Initialize with storage bucket if available
+                    options = {}
+                    if hasattr(settings, 'FIREBASE_STORAGE_BUCKET') and settings.FIREBASE_STORAGE_BUCKET:
+                        options['storageBucket'] = settings.FIREBASE_STORAGE_BUCKET
+                    
+                    firebase_admin.initialize_app(cred, options)
+                    FIREBASE_INITIALIZED = True
+                    logger.info("✅ Firebase Admin SDK initialized successfully")
+                except Exception as init_error:
+                    logger.warning(f"⚠️  Firebase initialization failed: {str(init_error)[:100]}...")
+                    logger.warning("Authentication will use frontend Firebase only")
+            else:
+                logger.warning("⚠️  Firebase credentials not properly configured in .env")
+                logger.warning("Set FIREBASE_PROJECT_ID and FIREBASE_PRIVATE_KEY in your .env file")
     except Exception as e:
         logger.warning(f"⚠️  Firebase setup error: {str(e)[:100]}...")
 

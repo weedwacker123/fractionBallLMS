@@ -182,6 +182,43 @@ class VideoAsset(models.Model):
             return f"{size_mb:.1f} MB"
         else:
             return f"{size_mb / 1024:.1f} GB"
+    
+    def get_streaming_url(self, expiration_minutes=60):
+        """
+        Generate a signed streaming URL for this video
+        
+        Args:
+            expiration_minutes: How long the URL should be valid (default 60 mins)
+        
+        Returns:
+            Signed streaming URL
+        """
+        from content.firebase_storage import get_storage_service
+        storage_service = get_storage_service()
+        return storage_service.generate_streaming_url(
+            file_path=self.storage_uri,
+            expiration_minutes=expiration_minutes
+        )
+    
+    def get_thumbnail_url(self, expiration_minutes=60):
+        """
+        Generate a signed URL for the video thumbnail
+        
+        Args:
+            expiration_minutes: How long the URL should be valid (default 60 mins)
+        
+        Returns:
+            Signed thumbnail URL or None if no thumbnail
+        """
+        if not self.thumbnail_uri:
+            return None
+        
+        from content.firebase_storage import get_storage_service
+        storage_service = get_storage_service()
+        return storage_service.generate_download_url(
+            file_path=self.thumbnail_uri,
+            expiration_minutes=expiration_minutes
+        )
 
 
 class Resource(models.Model):
@@ -286,6 +323,23 @@ class Resource(models.Model):
             return f"{self.file_size / (1024 * 1024):.1f} MB"
         else:
             return f"{self.file_size / (1024 * 1024 * 1024):.1f} GB"
+    
+    def get_download_url(self, expiration_minutes=60):
+        """
+        Generate a signed download URL for this resource
+        
+        Args:
+            expiration_minutes: How long the URL should be valid (default 60 mins)
+        
+        Returns:
+            Signed download URL
+        """
+        from content.firebase_storage import get_storage_service
+        storage_service = get_storage_service()
+        return storage_service.generate_download_url(
+            file_path=self.file_uri,
+            expiration_minutes=expiration_minutes
+        )
 
 
 class Playlist(models.Model):
@@ -564,6 +618,234 @@ class AssetDownload(models.Model):
     
     def __str__(self):
         return f"{self.user.get_full_name()} downloaded {self.resource.title}"
+
+
+class Activity(models.Model):
+    """Educational activities for the V4 interface"""
+    
+    LOCATION_CHOICES = [
+        ('classroom', 'Classroom'),
+        ('court', 'Court'),
+        ('both', 'Both'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=200, unique=True, help_text="URL-friendly version of title")
+    description = models.TextField(help_text="Brief description of the activity")
+    
+    # Activity Metadata
+    activity_number = models.PositiveIntegerField(help_text="Activity sequence number (1, 2, 3, etc.)")
+    grade = models.CharField(max_length=2, choices=GRADE_CHOICES)
+    topics = models.JSONField(
+        default=list,
+        help_text="Fraction topics covered (e.g., ['Mixed Denominators', 'Equivalent Fractions'])"
+    )
+    location = models.CharField(
+        max_length=20,
+        choices=LOCATION_CHOICES,
+        default='classroom',
+        help_text="Where the activity takes place"
+    )
+    
+    # Activity Details
+    prerequisites = models.JSONField(
+        default=list,
+        help_text="List of prerequisite skills/knowledge"
+    )
+    learning_objectives = models.TextField(
+        blank=True,
+        help_text="What students will learn"
+    )
+    materials = models.JSONField(
+        default=list,
+        help_text="Materials needed for the activity"
+    )
+    game_rules = models.JSONField(
+        default=list,
+        help_text="Step-by-step game rules"
+    )
+    key_terms = models.JSONField(
+        default=dict,
+        help_text="Key vocabulary terms and definitions"
+    )
+    
+    # Resources
+    video_asset = models.ForeignKey(
+        VideoAsset,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='activities',
+        help_text="Primary instructional video"
+    )
+    teacher_resources = models.ManyToManyField(
+        Resource,
+        blank=True,
+        related_name='teacher_activities',
+        help_text="Resources for teachers"
+    )
+    student_resources = models.ManyToManyField(
+        Resource,
+        blank=True,
+        related_name='student_activities',
+        help_text="Resources for students"
+    )
+    
+    # Icon/Image
+    icon_type = models.CharField(
+        max_length=50,
+        default='cone',
+        help_text="Icon identifier for display (cone, bottle-cap, person, etc.)"
+    )
+    thumbnail_uri = models.URLField(
+        blank=True,
+        help_text="Optional custom thumbnail image"
+    )
+    
+    # Organization
+    is_published = models.BooleanField(default=True, help_text="Whether activity is visible")
+    order = models.PositiveIntegerField(default=0, help_text="Display order within grade")
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['grade', 'order', 'activity_number']
+        verbose_name = 'Activity'
+        verbose_name_plural = 'Activities'
+        indexes = [
+            models.Index(fields=['grade', 'is_published']),
+            models.Index(fields=['slug']),
+            models.Index(fields=['is_published', 'order']),
+        ]
+    
+    def __str__(self):
+        return f"{self.title} (Grade {self.grade})"
+    
+    @property
+    def topic_tags(self):
+        """Return topics as a list for template rendering"""
+        return self.topics if isinstance(self.topics, list) else []
+
+
+class ForumCategory(models.Model):
+    """Categories for community forum posts"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    icon = models.CharField(max_length=50, default='chat', help_text="Icon identifier (chat, question, idea, etc.)")
+    color = models.CharField(max_length=20, default='gray', help_text="Color for the category badge")
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['order', 'name']
+        verbose_name = 'Forum Category'
+        verbose_name_plural = 'Forum Categories'
+    
+    def __str__(self):
+        return self.name
+
+
+class ForumPost(models.Model):
+    """Community forum posts"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=200, unique=True)
+    content = models.TextField(help_text="Post content in markdown or plain text")
+    
+    # Author
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='forum_posts')
+    
+    # Category
+    category = models.ForeignKey(ForumCategory, on_delete=models.CASCADE, null=True, blank=True)
+    
+    # Optional activity reference
+    related_activity = models.ForeignKey(
+        Activity,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='forum_posts',
+        help_text="Link post to a specific activity"
+    )
+    
+    # Engagement
+    view_count = models.PositiveIntegerField(default=0)
+    is_pinned = models.BooleanField(default=False, help_text="Pin to top of list")
+    is_locked = models.BooleanField(default=False, help_text="Prevent new comments")
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_activity_at = models.DateTimeField(auto_now_add=True, help_text="Last comment or update time")
+    
+    class Meta:
+        ordering = ['-is_pinned', '-last_activity_at']
+        verbose_name = 'Forum Post'
+        verbose_name_plural = 'Forum Posts'
+        indexes = [
+            models.Index(fields=['author', 'created_at']),
+            models.Index(fields=['category', 'created_at']),
+            models.Index(fields=['-is_pinned', '-last_activity_at']),
+        ]
+    
+    def __str__(self):
+        return self.title
+    
+    @property
+    def author_name(self):
+        return self.author.get_full_name() or self.author.username
+
+
+class ForumComment(models.Model):
+    """Comments on forum posts"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    post = models.ForeignKey(ForumPost, on_delete=models.CASCADE, related_name='comments')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='forum_comments')
+    content = models.TextField()
+    
+    # Optional reply to another comment (for threading)
+    parent_comment = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='replies'
+    )
+    
+    # Moderation
+    is_deleted = models.BooleanField(default=False)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = 'Forum Comment'
+        verbose_name_plural = 'Forum Comments'
+        indexes = [
+            models.Index(fields=['post', 'created_at']),
+            models.Index(fields=['author', 'created_at']),
+        ]
+    
+    def __str__(self):
+        return f"Comment by {self.author.get_full_name()} on {self.post.title}"
+    
+    @property
+    def author_name(self):
+        return self.author.get_full_name() or self.author.username
 
 
 class DailyAssetStats(models.Model):

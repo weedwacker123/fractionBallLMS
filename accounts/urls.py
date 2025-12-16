@@ -11,7 +11,8 @@ app_name = 'accounts'
 
 urlpatterns = [
     # Authentication views
-    path('login/', views.login_view, name='login'),
+    path('login/', views.django_login_view, name='login'),  # Using Django login now
+    path('firebase-login/', views.login_view, name='firebase-login'),  # Firebase login
     path('logout/', views.logout_view, name='logout'),
     path('verify-token/', views.verify_token, name='verify-token'),
     

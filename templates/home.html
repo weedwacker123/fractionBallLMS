@@ -2,272 +2,202 @@
 
 {% block title %}Fraction Ball - Math Through Movement{% endblock %}
 
+{% block extra_head %}
+<style>
+    .filter-active {
+        background-color: #bef264 !important;
+        border-color: #a3e635 !important;
+    }
+    .activity-icon-cone svg { fill: currentColor; }
+    .activity-icon-bottle-cap svg { fill: none; stroke: currentColor; }
+    .activity-icon-person svg { fill: currentColor; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Hero Section -->
     <div class="text-center mb-12">
         <h1 class="text-5xl font-bold text-gray-900 mb-4">FRACTIONBALL</h1>
         <p class="text-lg text-gray-600 max-w-2xl mx-auto">
-            What is Fraction Ball? Short summary here ...
+            Engaging fraction activities that combine movement and learning. Browse our activities below or use filters to find exactly what you need.
         </p>
     </div>
     
+    <!-- Search Bar -->
+    <div class="mb-6">
+        <form method="get" action="/" class="max-w-2xl mx-auto">
+            <div class="relative">
+                <input type="text" name="q" value="{{ search_query }}" 
+                       placeholder="Search activities..." 
+                       class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+                <button type="submit" class="absolute right-3 top-3 text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </button>
+            </div>
+        </form>
+    </div>
+    
     <!-- Filters Section -->
-    <div class="mb-8 flex flex-wrap items-center gap-3">
+    <div class="mb-8 flex flex-wrap items-center gap-3" id="filters-container">
         <span class="text-sm font-medium text-gray-700">filters</span>
         
         <!-- Grade Filter -->
         <div class="relative inline-block">
-            <button id="grade-dropdown" class="inline-flex items-center px-4 py-2 bg-yellow-200 border border-yellow-300 rounded-full text-sm font-medium text-gray-900 hover:bg-yellow-300 transition-colors">
-                Grade 5
+            <button id="grade-dropdown" type="button" class="inline-flex items-center px-4 py-2 {% if selected_grade %}bg-yellow-200 border-yellow-300{% else %}bg-white border-gray-300{% endif %} border rounded-full text-sm font-medium text-gray-900 hover:bg-yellow-300 transition-colors">
+                Grade {{ selected_grade|default:"All" }}
                 <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
             </button>
+            <div id="grade-menu" class="hidden absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                <a href="?{% if search_query %}q={{ search_query }}&{% endif %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">All Grades</a>
+                {% for grade in grade_choices %}
+                <a href="?grade={{ grade }}{% if search_query %}&q={{ search_query }}{% endif %}" 
+                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 {% if selected_grade == grade %}bg-gray-50 font-medium{% endif %}">
+                    Grade {{ grade }}
+                </a>
+                {% endfor %}
+            </div>
         </div>
         
-        <!-- Topic Filters -->
-        <button class="inline-flex items-center px-4 py-2 bg-yellow-200 border border-yellow-300 rounded-full text-sm font-medium text-gray-900 hover:bg-yellow-300 transition-colors">
-            FRACTIONS
-            <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- Topic Filters (Dynamic) -->
+        {% for topic in all_topics %}
+        <a href="?{% if selected_grade %}grade={{ selected_grade }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}{% if topic not in selected_topics %}topic={{ topic }}{% for st in selected_topics %}&topic={{ st }}{% endfor %}{% else %}{% for st in selected_topics %}{% if st != topic %}topic={{ st }}&{% endif %}{% endfor %}{% endif %}" 
+           class="px-4 py-2 {% if topic in selected_topics %}bg-yellow-200 border-yellow-300{% else %}bg-white border-gray-300{% endif %} border rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+            {{ topic }}
+            {% if topic in selected_topics %}
+            <svg class="ml-2 w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
-        </button>
+            {% endif %}
+        </a>
+        {% endfor %}
         
-        <button class="px-4 py-2 bg-white border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-            DECIMALS
-        </button>
-        
-        <button class="px-4 py-2 bg-white border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors inline-flex items-center">
+        <!-- Location Filters -->
+        <a href="?{% if selected_grade %}grade={{ selected_grade }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}{% if selected_location != 'classroom' %}location=classroom{% endif %}" 
+           class="px-4 py-2 {% if selected_location == 'classroom' %}bg-yellow-200 border-yellow-300{% else %}bg-white border-gray-300{% endif %} border rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors inline-flex items-center">
             CLASSROOM
             <svg class="ml-1 w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z"/>
             </svg>
-        </button>
+        </a>
         
-        <button class="px-4 py-2 bg-white border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors inline-flex items-center">
+        <a href="?{% if selected_grade %}grade={{ selected_grade }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}{% if selected_location != 'court' %}location=court{% endif %}" 
+           class="px-4 py-2 {% if selected_location == 'court' %}bg-yellow-200 border-yellow-300{% else %}bg-white border-gray-300{% endif %} border rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors inline-flex items-center">
             COURT
             <svg class="ml-1 w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
             </svg>
-        </button>
+        </a>
         
-        <button class="text-sm text-red-600 hover:text-red-700 font-medium">
-            See more...
-        </button>
+        <!-- Clear Filters -->
+        {% if selected_grade or selected_topics or selected_location or search_query %}
+        <a href="/" class="text-sm text-red-600 hover:text-red-700 font-medium">
+            Clear all filters
+        </a>
+        {% endif %}
     </div>
     
-    <!-- Activities Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-        <!-- Activity 1: Field Cone Frenzy -->
-        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200 overflow-hidden">
-            <div class="p-6">
-                <div class="flex justify-between items-start mb-4">
-                    <span class="text-xs font-semibold text-gray-500 uppercase">Activity 1</span>
-                </div>
-                
-                <!-- Icon -->
-                <div class="flex justify-center mb-4">
-                    <div class="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <svg class="w-16 h-16 text-gray-800" viewBox="0 0 100 100" fill="currentColor">
-                            <!-- Cone shape -->
-                            <path d="M 50 10 L 80 90 L 20 90 Z"/>
-                            <ellipse cx="50" cy="30" rx="8" ry="3"/>
-                            <ellipse cx="50" cy="50" rx="12" ry="4"/>
-                            <ellipse cx="50" cy="70" rx="16" ry="5"/>
-                        </svg>
-                    </div>
-                </div>
-                
-                <h3 class="text-xl font-bold text-gray-900 text-center mb-3">Field Cone Frenzy</h3>
-                
-                <!-- Tags -->
-                <div class="flex flex-wrap gap-2 justify-center mb-4">
-                    <span class="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full border border-gray-300">Mixed Denominators</span>
-                    <span class="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full border border-gray-300">Mixed Numbers</span>
-                </div>
-                
-                <a href="/activities/field-cone-frenzy/" class="block w-full text-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">
-                    View Activity
-                </a>
-            </div>
-        </div>
-        
-        <!-- Activity 2: Bottle-Cap Bonanza -->
-        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200 overflow-hidden">
-            <div class="p-6">
-                <div class="flex justify-between items-start mb-4">
-                    <span class="text-xs font-semibold text-gray-500 uppercase">Activity 2</span>
-                </div>
-                
-                <!-- Icon -->
-                <div class="flex justify-center mb-4">
-                    <div class="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <svg class="w-16 h-16 text-gray-800" viewBox="0 0 100 100" fill="currentColor">
-                            <!-- Bottle cap shape -->
-                            <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" stroke-width="4"/>
-                            <path d="M 30 45 Q 50 35, 70 45 L 70 55 Q 50 65, 30 55 Z"/>
-                            <line x1="35" y1="50" x2="65" y2="50" stroke="currentColor" stroke-width="2"/>
-                        </svg>
-                    </div>
-                </div>
-                
-                <h3 class="text-xl font-bold text-gray-900 text-center mb-3">Bottle-Cap Bonanza</h3>
-                
-                <!-- Tags -->
-                <div class="flex flex-wrap gap-2 justify-center mb-4">
-                    <span class="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full border border-gray-300">Equivalent Fractions</span>
-                </div>
-                
-                <a href="/activities/bottle-cap-bonanza/" class="block w-full text-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">
-                    View Activity
-                </a>
-            </div>
-        </div>
-        
-        <!-- Activity 3: Simon Says & Switch -->
-        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200 overflow-hidden">
-            <div class="p-6">
-                <div class="flex justify-between items-start mb-4">
-                    <span class="text-xs font-semibold text-gray-500 uppercase">Activity 3</span>
-                </div>
-                
-                <!-- Icon -->
-                <div class="flex justify-center mb-4">
-                    <div class="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <svg class="w-16 h-16 text-gray-800" viewBox="0 0 100 100" fill="currentColor">
-                            <!-- Person speaking icon -->
-                            <circle cx="50" cy="30" r="15"/>
-                            <path d="M 35 50 Q 35 45, 50 45 Q 65 45, 65 50 L 65 80 Q 65 85, 50 85 Q 35 85, 35 80 Z"/>
-                            <path d="M 70 40 Q 80 40, 85 35 M 70 45 Q 82 45, 87 45 M 70 50 Q 80 50, 85 55" stroke="currentColor" fill="none" stroke-width="2"/>
-                        </svg>
-                    </div>
-                </div>
-                
-                <h3 class="text-xl font-bold text-gray-900 text-center mb-3">Simon Says & Switch</h3>
-                
-                <!-- Tags -->
-                <div class="flex flex-wrap gap-2 justify-center mb-4">
-                    <span class="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full border border-gray-300">Mixed Denominators</span>
-                    <span class="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full border border-gray-300">Like Denominators</span>
-                </div>
-                
-                <a href="/activities/simon-says-switch/" class="block w-full text-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">
-                    View Activity
-                </a>
-            </div>
-        </div>
+    <!-- Results Count -->
+    <div class="mb-4 text-sm text-gray-600">
+        Showing {{ activities|length }} activit{{ activities|length|pluralize:"y,ies" }}
+        {% if selected_grade %}for Grade {{ selected_grade }}{% endif %}
     </div>
     
-    <!-- More rows for different grade levels -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-        <!-- Activity 1 (Pt. 2) -->
-        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200 overflow-hidden">
+    <!-- Activities Grid (Dynamic) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12" id="activities-grid">
+        {% for activity in activities %}
+        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200 overflow-hidden activity-card" data-grade="{{ activity.grade }}" data-topics="{{ activity.topics|join:',' }}">
             <div class="p-6">
                 <div class="flex justify-between items-start mb-4">
-                    <span class="text-xs font-semibold text-gray-500 uppercase">Activity 1</span>
+                    <span class="text-xs font-semibold text-gray-500 uppercase">Activity {{ activity.activity_number }}</span>
+                    <span class="text-xs font-medium text-blue-600 px-2 py-1 bg-blue-50 rounded">Grade {{ activity.grade }}</span>
                 </div>
                 
+                <!-- Icon -->
                 <div class="flex justify-center mb-4">
-                    <div class="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <div class="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center activity-icon-{{ activity.icon_type }}">
+                        {% if activity.icon_type == 'cone' %}
                         <svg class="w-16 h-16 text-gray-800" viewBox="0 0 100 100" fill="currentColor">
                             <path d="M 50 10 L 80 90 L 20 90 Z"/>
                             <ellipse cx="50" cy="30" rx="8" ry="3"/>
                             <ellipse cx="50" cy="50" rx="12" ry="4"/>
                             <ellipse cx="50" cy="70" rx="16" ry="5"/>
                         </svg>
-                    </div>
-                </div>
-                
-                <h3 class="text-xl font-bold text-gray-900 text-center mb-3">Field Cone Frenzy Pt. 2</h3>
-                
-                <div class="flex flex-wrap gap-2 justify-center mb-4">
-                    <span class="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full border border-gray-300">Field Goals Frenzy</span>
-                </div>
-                
-                <a href="/activities/field-cone-frenzy-pt2/" class="block w-full text-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">
-                    View Activity
-                </a>
-            </div>
-        </div>
-        
-        <!-- Activity 2 (Pt. 2) -->
-        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200 overflow-hidden">
-            <div class="p-6">
-                <div class="flex justify-between items-start mb-4">
-                    <span class="text-xs font-semibold text-gray-500 uppercase">Activity 2</span>
-                </div>
-                
-                <div class="flex justify-center mb-4">
-                    <div class="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center">
+                        {% elif activity.icon_type == 'bottle-cap' %}
                         <svg class="w-16 h-16 text-gray-800" viewBox="0 0 100 100" fill="currentColor">
                             <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" stroke-width="4"/>
                             <path d="M 30 45 Q 50 35, 70 45 L 70 55 Q 50 65, 30 55 Z"/>
                             <line x1="35" y1="50" x2="65" y2="50" stroke="currentColor" stroke-width="2"/>
                         </svg>
-                    </div>
-                </div>
-                
-                <h3 class="text-xl font-bold text-gray-900 text-center mb-3">Bottle-cap Bonanza Pt. 2</h3>
-                
-                <div class="flex flex-wrap gap-2 justify-center mb-4">
-                    <span class="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full border border-gray-300">Equivalent Fractions</span>
-                </div>
-                
-                <a href="/activities/bottle-cap-bonanza-pt2/" class="block w-full text-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">
-                    View Activity
-                </a>
-            </div>
-        </div>
-        
-        <!-- Activity 3 (Pt. 2) -->
-        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200 overflow-hidden">
-            <div class="p-6">
-                <div class="flex justify-between items-start mb-4">
-                    <span class="text-xs font-semibold text-gray-500 uppercase">Activity 3</span>
-                </div>
-                
-                <div class="flex justify-center mb-4">
-                    <div class="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center">
+                        {% elif activity.icon_type == 'person' %}
                         <svg class="w-16 h-16 text-gray-800" viewBox="0 0 100 100" fill="currentColor">
                             <circle cx="50" cy="30" r="15"/>
                             <path d="M 35 50 Q 35 45, 50 45 Q 65 45, 65 50 L 65 80 Q 65 85, 50 85 Q 35 85, 35 80 Z"/>
                             <path d="M 70 40 Q 80 40, 85 35 M 70 45 Q 82 45, 87 45 M 70 50 Q 80 50, 85 55" stroke="currentColor" fill="none" stroke-width="2"/>
                         </svg>
+                        {% else %}
+                        <svg class="w-16 h-16 text-gray-800" viewBox="0 0 100 100" fill="currentColor">
+                            <circle cx="50" cy="50" r="40"/>
+                        </svg>
+                        {% endif %}
                     </div>
                 </div>
                 
-                <h3 class="text-xl font-bold text-gray-900 text-center mb-3">Simon Says Pt. 2</h3>
+                <h3 class="text-xl font-bold text-gray-900 text-center mb-3">{{ activity.title }}</h3>
                 
+                <p class="text-sm text-gray-600 text-center mb-4 line-clamp-2">{{ activity.description }}</p>
+                
+                <!-- Tags -->
                 <div class="flex flex-wrap gap-2 justify-center mb-4">
-                    <span class="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full border border-gray-300">Mixed Denominators</span>
+                    {% for topic in activity.topic_tags %}
+                    <span class="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full border border-gray-300">{{ topic }}</span>
+                    {% endfor %}
                 </div>
                 
-                <a href="/activities/simon-says-pt2/" class="block w-full text-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">
+                <a href="/activities/{{ activity.slug }}/" class="block w-full text-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">
                     View Activity
                 </a>
             </div>
         </div>
+        {% empty %}
+        <div class="col-span-full text-center py-12">
+            <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">No activities found</h3>
+            <p class="text-gray-600 mb-4">Try adjusting your filters or search terms</p>
+            <a href="/" class="text-red-600 hover:text-red-700 font-medium">Clear all filters</a>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
 <script>
-// Filter functionality can be added here
+// Filter functionality
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Fraction Ball home page loaded');
+    console.log('Fraction Ball home page loaded with dynamic activities');
     
-    // Future: Add filter functionality
-    // Future: Add search functionality
-    // Future: Add dynamic activity loading
+    // Grade filter dropdown
+    const gradeDropdown = document.getElementById('grade-dropdown');
+    const gradeMenu = document.getElementById('grade-menu');
+    
+    if (gradeDropdown && gradeMenu) {
+        gradeDropdown.addEventListener('click', function(e) {
+            e.stopPropagation();
+            gradeMenu.classList.toggle('hidden');
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!gradeDropdown.contains(e.target)) {
+                gradeMenu.classList.add('hidden');
+            }
+        });
+    }
 });
 </script>
 {% endblock %}
-
-
-
-
-
-
-
-
-

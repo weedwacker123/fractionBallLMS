@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import VideoAsset, Resource, Playlist, PlaylistItem
+from .models import VideoAsset, Resource, Playlist, PlaylistItem, PlaylistShare, AuditLog
 
 User = get_user_model()
 
@@ -196,3 +196,74 @@ class UploadCompleteSerializer(serializers.Serializer):
         if not value or len(value) < 10:
             raise serializers.ValidationError("Invalid storage path")
         return value
+
+
+class PlaylistShareSerializer(serializers.ModelSerializer):
+    """Serializer for PlaylistShare model"""
+    
+    playlist_name = serializers.CharField(source='playlist.name', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    is_expired = serializers.SerializerMethodField()
+    share_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = PlaylistShare
+        fields = [
+            'id',
+            'playlist',
+            'playlist_name',
+            'share_token',
+            'created_by',
+            'created_by_name',
+            'expires_at',
+            'is_active',
+            'view_count',
+            'last_accessed',
+            'created_at',
+            'is_expired',
+            'share_url'
+        ]
+        read_only_fields = [
+            'id',
+            'share_token',
+            'view_count',
+            'last_accessed',
+            'created_at',
+            'playlist_name',
+            'created_by_name',
+            'is_expired',
+            'share_url'
+        ]
+    
+    def get_is_expired(self, obj):
+        """Check if share link is expired"""
+        return obj.is_expired
+    
+    def get_share_url(self, obj):
+        """Generate full share URL"""
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(f'/shared/{obj.share_token}/')
+        return f'/shared/{obj.share_token}/'
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    """Serializer for AuditLog model"""
+    
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    action_display = serializers.CharField(source='get_action_display', read_only=True)
+    
+    class Meta:
+        model = AuditLog
+        fields = [
+            'id',
+            'action',
+            'action_display',
+            'user',
+            'user_name',
+            'metadata',
+            'ip_address',
+            'user_agent',
+            'created_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'user_name', 'action_display']

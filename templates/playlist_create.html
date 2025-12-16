@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Playlist - Fraction Ball{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-8">
+        <div class="flex items-center space-x-3 mb-4">
+            <a href="/playlists/" class="text-gray-600 hover:text-gray-900">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </a>
+            <h1 class="text-3xl font-bold text-gray-900">Create Playlist</h1>
+        </div>
+        <p class="text-gray-600">Organize your favorite activities into a custom playlist</p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <form method="POST" action="/playlists/create/">
+            {% csrf_token %}
+            
+            <div class="mb-6">
+                <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+                    Playlist Name <span class="text-red-600">*</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="name" 
+                    name="name" 
+                    required
+                    placeholder="e.g., Grade 5 Fraction Activities"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+            </div>
+
+            <div class="mb-6">
+                <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+                    Description (optional)
+                </label>
+                <textarea 
+                    id="description" 
+                    name="description" 
+                    rows="4"
+                    placeholder="Describe what this playlist is for..."
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                ></textarea>
+            </div>
+
+            <div class="mb-6">
+                <div class="flex items-start">
+                    <div class="flex items-center h-5">
+                        <input 
+                            type="checkbox" 
+                            id="is_public" 
+                            name="is_public"
+                            class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                        >
+                    </div>
+                    <div class="ml-3">
+                        <label for="is_public" class="font-medium text-gray-700">Make this playlist public</label>
+                        <p class="text-sm text-gray-500">Other teachers in your school will be able to view and duplicate this playlist</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex space-x-3">
+                <button 
+                    type="submit" 
+                    class="flex-1 px-6 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                >
+                    Create Playlist
+                </button>
+                <a 
+                    href="/playlists/" 
+                    class="flex-1 px-6 py-3 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors text-center focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tips Section -->
+    <div class="mt-8 bg-blue-50 rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-blue-900 mb-3">💡 Tips for Creating Playlists</h3>
+        <ul class="space-y-2 text-sm text-blue-800">
+            <li class="flex items-start">
+                <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <span>Group activities by grade level or topic for easy reference</span>
+            </li>
+            <li class="flex items-start">
+                <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <span>Make playlists public to share with other teachers</span>
+            </li>
+            <li class="flex items-start">
+                <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <span>Create themed playlists for units or lesson plans</span>
+            </li>
+            <li class="flex items-start">
+                <svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <span>Add activities to playlists from the activity detail pages</span>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+

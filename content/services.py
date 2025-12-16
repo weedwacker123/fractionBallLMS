@@ -41,7 +41,14 @@ class FirebaseStorageService:
     def __init__(self):
         """Initialize Firebase Storage client"""
         try:
-            self.bucket = storage.bucket()
+            # Try to get the bucket with the name from settings
+            bucket_name = getattr(settings, 'FIREBASE_STORAGE_BUCKET', None)
+            if bucket_name:
+                self.bucket = storage.bucket(bucket_name)
+            else:
+                # Fall back to default bucket (requires bucket to be set during initialize_app)
+                self.bucket = storage.bucket()
+            logger.info(f"✅ Firebase Storage initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Firebase Storage: {e}")
             self.bucket = None
@@ -139,6 +146,72 @@ class FirebaseStorageService:
             'filename': unique_filename,
             'expires_at': (datetime.utcnow() + timedelta(hours=1)).isoformat(),
             'metadata': metadata
+        }
+    
+    def upload_file_direct(self, file_obj, filename, content_type, 
+                          file_category='video', user_id=None, school_id=None):
+        """
+        Upload a file directly to Firebase Storage (for Django file uploads)
+        
+        Args:
+            file_obj: Django UploadedFile object
+            filename: Original filename
+            content_type: MIME type
+            file_category: 'video' or 'resource'
+            user_id: ID of the uploading user
+            school_id: ID of the user's school
+            
+        Returns:
+            dict: Storage path and public URL
+        """
+        if not self.bucket:
+            raise Exception("Firebase Storage not initialized")
+        
+        # Validate file
+        self.validate_file(filename, file_obj.size, content_type, file_category)
+        
+        # Generate unique filename
+        file_extension = filename.split('.')[-1].lower() if '.' in filename else 'bin'
+        unique_filename = f"{uuid.uuid4()}.{file_extension}"
+        
+        # Create storage path with date-based organization
+        date_prefix = datetime.now().strftime('%Y%m%d')
+        storage_path = f"{file_category}s/{date_prefix}/{unique_filename}"
+        
+        # Get blob reference
+        blob = self.bucket.blob(storage_path)
+        
+        # Set metadata
+        metadata = {
+            'originalFilename': filename,
+            'uploader': str(user_id) if user_id else 'unknown',
+            'schoolId': str(school_id) if school_id else 'unknown',
+            'category': file_category,
+            'uploadTimestamp': datetime.utcnow().isoformat(),
+            'contentType': content_type
+        }
+        blob.metadata = metadata
+        blob.content_type = content_type
+        
+        # Upload file
+        logger.info(f"Uploading {filename} to Firebase Storage: {storage_path}")
+        blob.upload_from_file(file_obj, content_type=content_type)
+        
+        # Make the blob publicly readable (you can adjust this based on your security needs)
+        # blob.make_public()  # Uncomment if you want public access
+        
+        # Generate public URL
+        public_url = f"https://firebasestorage.googleapis.com/v0/b/{self.bucket.name}/o/{storage_path.replace('/', '%2F')}?alt=media"
+        
+        logger.info(f"✅ File uploaded successfully to: {storage_path}")
+        
+        return {
+            'storage_path': storage_path,
+            'public_url': public_url,
+            'filename': unique_filename,
+            'original_filename': filename,
+            'size': file_obj.size,
+            'content_type': content_type
         }
     
     def generate_download_url(self, storage_path, expires_in_hours=24):

@@ -9,226 +9,142 @@
         <ol class="flex items-center space-x-2 text-gray-500">
             <li><a href="/" class="hover:text-gray-700">Home</a></li>
             <li><span class="mx-2">/</span></li>
-            <li><a href="/?grade=5" class="hover:text-gray-700">Grade 5</a></li>
+            <li><a href="/?grade={{ activity.grade }}" class="hover:text-gray-700">Grade {{ activity.grade }}</a></li>
             <li><span class="mx-2">/</span></li>
-            <li class="text-gray-900 font-medium">Activity 1</li>
+            <li class="text-gray-900 font-medium">{{ activity.title }}</li>
         </ol>
     </nav>
     
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Main Content -->
         <div class="lg:col-span-2">
-            <!-- Prerequisites -->
-            <div class="mb-8">
-                <h2 class="text-2xl font-bold text-gray-900 mb-4">Prerequisites</h2>
-                <ul class="list-disc list-inside space-y-2 text-gray-700">
-                    <li>Shooting a basketball</li>
-                    <li>Making teams</li>
-                    <li>Other activities</li>
-                </ul>
-            </div>
-            
             <!-- Activity Title -->
             <div class="mb-8">
-                <h1 class="text-4xl font-bold text-gray-900 mb-2">Field Cone Frenzy</h1>
-                <div class="w-16 h-1 bg-red-600"></div>
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-semibold px-3 py-1 bg-blue-100 text-blue-800 rounded-full">Activity {{ activity.activity_number }}</span>
+                        <span class="text-sm font-semibold px-3 py-1 bg-gray-100 text-gray-800 rounded-full">Grade {{ activity.grade }}</span>
+                        <span class="text-sm font-semibold px-3 py-1 bg-green-100 text-green-800 rounded-full">{{ activity.get_location_display }}</span>
+                    </div>
+                    {% if user.is_authenticated and activity.video_asset %}
+                    <button onclick="showAddToPlaylistModal()" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Add to Playlist
+                    </button>
+                    {% endif %}
+                </div>
+                <h1 class="text-4xl font-bold text-gray-900 mb-3">{{ activity.title }}</h1>
+                <div class="w-16 h-1 bg-red-600 mb-4"></div>
+                <p class="text-lg text-gray-600">{{ activity.description }}</p>
             </div>
             
-            <!-- Download PDF -->
-            <div class="mb-6">
-                <a href="#" class="inline-flex items-center text-red-600 hover:text-red-700 font-medium">
-                    Download PDF
-                    <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                </a>
-            </div>
-            
-            <!-- Learning Objectives -->
+            <!-- Video Player (if available) -->
+            {% if video_url %}
             <div class="mb-8">
-                <h2 class="text-xl font-bold text-gray-900 mb-4">Learning Objectives</h2>
-                <div class="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                    <p class="font-semibold text-gray-900 mb-3">Students will be able to:</p>
-                    <ul class="space-y-2 text-gray-700">
-                        <li class="flex items-start">
-                            <span class="mr-2">•</span>
-                            <span>Demonstrate self-awareness by recognizing their strengths and opportunities for growth on the court and making adjustments to enhance their personal and team success.</span>
-                        </li>
-                        <li class="flex items-start">
-                            <span class="mr-2">•</span>
-                            <span>Exhibit social awareness through <strong>sportsmanship</strong> by practicing empathy, appreciating everyone's skill set, and showing respect during gameplay.</span>
-                        </li>
-                        <li class="flex items-start">
-                            <span class="mr-2">•</span>
-                            <span>Develop relationship skills by effectively communicating, cooperating, and resolving conflict with teammates.</span>
-                        </li>
-                    </ul>
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">Instructional Video</h2>
+                <div class="bg-black rounded-lg overflow-hidden aspect-video">
+                    <video controls class="w-full h-full" controlsList="nodownload">
+                        <source src="{{ video_url }}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
                 </div>
             </div>
+            {% endif %}
             
-            <!-- Lesson Overview -->
+            <!-- Topics -->
+            {% if activity.topics %}
             <div class="mb-8">
-                <h2 class="text-xl font-bold text-gray-900 mb-4">Lesson Overview:</h2>
-                <ul class="space-y-3 text-gray-700">
-                    <li class="flex items-start">
-                        <span class="font-bold mr-2">Part 1:</span>
-                        <span>Students will be going for the first time to the court and practice shooting in a low-stakes environment and teacher will encourage students to engage in <strong>sportsmanship</strong>.</span>
-                    </li>
-                    <li class="flex items-start">
-                        <span class="font-bold mr-2">Part 2:</span>
-                        <span>The teacher will use the running record to assess the students' basketball and collaboration skills to inform the creation of Fraction Ball teams.</span>
-                    </li>
+                <h2 class="text-xl font-bold text-gray-900 mb-3">Topics Covered</h2>
+                <div class="flex flex-wrap gap-2">
+                    {% for topic in activity.topics %}
+                    <span class="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">{{ topic }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Prerequisites -->
+            {% if activity.prerequisites %}
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">Prerequisites</h2>
+                <ul class="list-disc list-inside space-y-2 text-gray-700 bg-gray-50 rounded-lg p-6 border border-gray-200">
+                    {% for prereq in activity.prerequisites %}
+                    <li>{{ prereq }}</li>
+                    {% endfor %}
                 </ul>
             </div>
+            {% endif %}
+            
+            <!-- Learning Objectives -->
+            {% if activity.learning_objectives %}
+            <div class="mb-8">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Learning Objectives</h2>
+                <div class="bg-blue-50 rounded-lg p-6 border border-blue-200">
+                    <div class="prose prose-sm max-w-none text-gray-700">
+                        {{ activity.learning_objectives|linebreaks }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
             
             <!-- Materials and Key Terms -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <!-- Materials -->
+                {% if activity.materials %}
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
-                    <h3 class="text-lg font-bold text-gray-900 mb-4">Materials:</h3>
+                    <h3 class="text-lg font-bold text-gray-900 mb-4">Materials</h3>
                     <ul class="space-y-2 text-gray-700 text-sm">
-                        <li class="flex items-center">
+                        {% for material in activity.materials %}
+                        <li class="flex items-start">
                             <span class="mr-2">•</span>
-                            <span>Portable Mic</span>
+                            <span>{{ material }}</span>
                         </li>
-                        <li class="flex items-center">
-                            <span class="mr-2">•</span>
-                            <div>
-                                <a href="#" class="text-red-600 hover:text-red-700 underline">Running record</a>
-                                <p class="text-xs text-gray-500 italic mt-1">Note: Add student names before printing</p>
-                            </div>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="mr-2">•</span>
-                            <span>Pencil</span>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="mr-2">•</span>
-                            <span>Teacher Clipboard</span>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="mr-2">•</span>
-                            <span>Cones</span>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="mr-2">•</span>
-                            <span>Timer</span>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="mr-2">•</span>
-                            <span>Hula hoop (optional)</span>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="mr-2">•</span>
-                            <span>Whistle (optional)</span>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="mr-2">•</span>
-                            <span>4 basketballs</span>
-                        </li>
+                        {% endfor %}
                     </ul>
                 </div>
+                {% endif %}
                 
                 <!-- Key Terms -->
+                {% if activity.key_terms %}
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
-                    <h3 class="text-lg font-bold text-gray-900 mb-4">Key Terms:</h3>
-                    <ul class="space-y-2 text-gray-700 text-sm">
-                        <li class="flex items-center">
-                            <span class="mr-2">•</span>
-                            <span>Sportsmanship</span>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="mr-2">•</span>
-                            <span>Underhand</span>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="mr-2">•</span>
-                            <span>Lob</span>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="mr-2">•</span>
-                            <span>Arc</span>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="mr-2">•</span>
-                            <span>Overhand</span>
-                        </li>
-                    </ul>
+                    <h3 class="text-lg font-bold text-gray-900 mb-4">Key Terms</h3>
+                    <dl class="space-y-3 text-sm">
+                        {% for term, definition in activity.key_terms.items %}
+                        <div>
+                            <dt class="font-bold text-gray-900">{{ term }}</dt>
+                            <dd class="text-gray-700 ml-4">{{ definition }}</dd>
+                        </div>
+                        {% endfor %}
+                    </dl>
                 </div>
+                {% endif %}
             </div>
             
             <!-- Game Rules -->
+            {% if activity.game_rules %}
             <div class="bg-red-50 rounded-lg border-2 border-red-200 p-6 mb-8">
-                <h2 class="text-xl font-bold text-gray-900 mb-4">Game Rules</h2>
-                <ul class="space-y-3 text-gray-700 text-sm">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">🎮 Game Rules</h2>
+                <ul class="space-y-3 text-gray-700">
+                    {% for rule in activity.game_rules %}
                     <li class="flex items-start">
-                        <span class="mr-2">•</span>
-                        <span>Teacher will divide the class into 4 equal groups, <em>this can be done in the classroom or on the court</em>.</span>
+                        <span class="mr-3 mt-1 flex-shrink-0 w-6 h-6 rounded-full bg-red-600 text-white text-xs flex items-center justify-center font-bold">{{ forloop.counter }}</span>
+                        <span>{{ rule }}</span>
                     </li>
-                    <li class="flex items-start">
-                        <span class="mr-2">•</span>
-                        <span>One player from each team picks a location to shoot from (indicated by the position of the cone) and shoots the ball.</span>
-                    </li>
-                    <li class="flex items-start ml-6">
-                        <span class="mr-2">○</span>
-                        <span>If they make the shot, they grab a cone, pass the basketball to the next teammate, and head back to the team line.</span>
-                    </li>
-                    <li class="flex items-start ml-6">
-                        <span class="mr-2">○</span>
-                        <span>If they miss, they get another shot. If they miss again, it is the next player's turn.</span>
-                    </li>
-                    <li class="flex items-start">
-                        <span class="mr-2">•</span>
-                        <span>Prompt students to work with their teams to discuss goals, plans, and strategies to win the game.</span>
-                    </li>
-                    <li class="flex items-start">
-                        <span class="mr-2">•</span>
-                        <span>Set a 10-minute timer and blow the whistle so students can get started!</span>
-                    </li>
-                    <li class="flex items-start">
-                        <span class="mr-2">•</span>
-                        <span>Keep going until all the cones are collected or 10 minutes are up <em>(you can adjust the time if needed)</em>.</span>
-                    </li>
-                    <li class="flex items-start">
-                        <span class="mr-2">•</span>
-                        <span>When the game ends, each team counts how many cones they gathered. The team with the most cones is the big winner!</span>
-                    </li>
-                    <li class="flex items-start">
-                        <span class="mr-2">•</span>
-                        <span>Encourage sportsmanship throughout!</span>
-                    </li>
+                    {% endfor %}
                 </ul>
-                
-                <div class="mt-6 pt-6 border-t border-red-300">
-                    <p class="font-semibold text-gray-900 mb-3">*Use this time to discuss and demonstrate various ways to shoot a basketball:</p>
-                    <ul class="space-y-2 text-gray-700 text-sm ml-6">
-                        <li class="flex items-start">
-                            <span class="mr-2">○</span>
-                            <span><strong>Overhand shot</strong></span>
-                        </li>
-                        <li class="flex items-start">
-                            <span class="mr-2">○</span>
-                            <span><strong>Underhand shot</strong></span>
-                        </li>
-                        <li class="flex items-start">
-                            <span class="mr-2">○</span>
-                            <span><strong>Lob</strong> - lofting the ball gently towards the basket, often used for long-range or high-arcing shots</span>
-                        </li>
-                        <li class="flex items-start">
-                            <span class="mr-2">○</span>
-                            <span><strong>Hula hoop as the target</strong> – offer a hula hoop placed over the basket as an alternative target for students who cannot make a traditional shot.</span>
-                        </li>
-                    </ul>
-                </div>
             </div>
+            {% endif %}
             
-            <!-- Additional Notes -->
+            <!-- Encouragement Tips -->
             <div class="bg-yellow-50 rounded-lg border border-yellow-200 p-6">
-                <h3 class="text-lg font-bold text-gray-900 mb-3">💡 Encouragement Reminders:</h3>
+                <h3 class="text-lg font-bold text-gray-900 mb-3">💡 Teaching Tips</h3>
                 <ul class="space-y-2 text-gray-700 text-sm">
-                    <li>• Celebrate effort and improvement, not just successful shots</li>
-                    <li>• Highlight examples of good teamwork and sportsmanship</li>
+                    <li>• Celebrate effort and improvement, not just successful outcomes</li>
+                    <li>• Highlight examples of good teamwork and collaboration</li>
                     <li>• Remind students that everyone learns at their own pace</li>
+                    <li>• Encourage students to help and support each other</li>
                 </ul>
             </div>
         </div>
@@ -242,38 +158,30 @@
                 <div class="mb-6">
                     <h3 class="text-sm font-bold text-gray-700 uppercase mb-3">For Teachers</h3>
                     <div class="space-y-3">
-                        <a href="#" class="block bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-900">.XCL</span>
-                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                </svg>
-                            </div>
-                        </a>
-                        
-                        <a href="#" class="block bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                            <div class="flex flex-col">
-                                <div class="flex items-center justify-between mb-2">
-                                    <span class="text-sm font-bold text-gray-900">COURT TRACKER</span>
-                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {% if teacher_resources %}
+                            {% for item in teacher_resources %}
+                            <a href="{{ item.download_url }}" target="_blank" class="block bg-white border border-gray-200 rounded-lg p-4 hover:border-red-300 hover:bg-red-50 transition-colors group">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1 mr-3">
+                                        <span class="text-sm font-medium text-gray-900 group-hover:text-red-700">{{ item.resource.title }}</span>
+                                        <p class="text-xs text-gray-500 mt-1">{{ item.resource.get_file_type_display }} · {{ item.resource.file_size_formatted }}</p>
+                                    </div>
+                                    <svg class="w-5 h-5 text-gray-600 group-hover:text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                     </svg>
                                 </div>
-                                <p class="text-xs text-gray-500">Download PDF</p>
-                            </div>
-                        </a>
-                        
-                        <a href="#" class="block bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                            <div class="flex flex-col">
-                                <div class="flex items-center justify-between mb-2">
-                                    <span class="text-sm font-bold text-gray-900">BASKETBALL ACTIVITY ...</span>
-                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </a>
+                            {% endfor %}
+                        {% else %}
+                            <div class="block bg-white border border-gray-200 rounded-lg p-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-400">No resources yet</span>
+                                    <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                     </svg>
                                 </div>
-                                <p class="text-xs text-gray-500">.PDF</p>
                             </div>
-                        </a>
+                        {% endif %}
                     </div>
                 </div>
                 
@@ -281,51 +189,229 @@
                 <div class="mb-6">
                     <h3 class="text-sm font-bold text-gray-700 uppercase mb-3">For Students</h3>
                     <div class="space-y-3">
-                        <a href="#" class="block bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-900">.PDF</span>
-                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                </svg>
-                            </div>
-                        </a>
-                        
-                        <a href="#" class="block bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                            <div class="flex flex-col">
-                                <div class="flex items-center justify-between mb-2">
-                                    <span class="text-sm font-bold text-gray-900">P5_FIELD CONE...</span>
-                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {% if student_resources %}
+                            {% for item in student_resources %}
+                            <a href="{{ item.download_url }}" target="_blank" class="block bg-white border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:bg-blue-50 transition-colors group">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1 mr-3">
+                                        <span class="text-sm font-medium text-gray-900 group-hover:text-blue-700">{{ item.resource.title }}</span>
+                                        <p class="text-xs text-gray-500 mt-1">{{ item.resource.get_file_type_display }} · {{ item.resource.file_size_formatted }}</p>
+                                    </div>
+                                    <svg class="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                </div>
+                            </a>
+                            {% endfor %}
+                        {% else %}
+                            <div class="block bg-white border border-gray-200 rounded-lg p-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-400">No resources yet</span>
+                                    <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                     </svg>
                                 </div>
                             </div>
-                        </a>
+                        {% endif %}
                     </div>
                 </div>
                 
                 <!-- Related Activities -->
+                {% if related_activities %}
                 <div>
                     <h3 class="text-sm font-bold text-gray-700 uppercase mb-3">Related Activities</h3>
                     <div class="space-y-3">
-                        <a href="/activities/bottle-cap-bonanza/" class="block bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-gray-100 transition-colors">
-                            <span class="text-sm font-medium text-gray-900">Bottle-Cap Bonanza</span>
+                        {% for related in related_activities %}
+                        <a href="/activities/{{ related.slug }}/" class="block bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-gray-100 transition-colors group">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <span class="text-sm font-medium text-gray-900 group-hover:text-red-700">{{ related.title }}</span>
+                                    <p class="text-xs text-gray-500 mt-1">Activity {{ related.activity_number }}</p>
+                                </div>
+                                <svg class="w-4 h-4 text-gray-400 group-hover:text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </div>
                         </a>
-                        <a href="/activities/simon-says-switch/" class="block bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-gray-100 transition-colors">
-                            <span class="text-sm font-medium text-gray-900">Simon Says & Switch</span>
-                        </a>
+                        {% endfor %}
                     </div>
+                </div>
+                {% endif %}
+                
+                <!-- Back to Activities -->
+                <div class="mt-6">
+                    <a href="/" class="block w-full text-center px-4 py-3 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors">
+                        ← Back to All Activities
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Add to Playlist Modal -->
+{% if user.is_authenticated and activity.video_asset %}
+<div id="playlistModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-medium text-gray-900">Add to Playlist</h3>
+            <button onclick="closePlaylistModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Existing Playlists -->
+        <div id="playlistsList" class="mb-4 max-h-60 overflow-y-auto">
+            <p class="text-sm text-gray-600 mb-2">Select a playlist:</p>
+            <div id="playlistsContainer" class="space-y-2">
+                <!-- Playlists will be loaded here -->
+            </div>
+        </div>
+        
+        <!-- Create New Playlist -->
+        <div class="pt-4 border-t border-gray-200">
+            <p class="text-sm text-gray-600 mb-2">Or create a new playlist:</p>
+            <div class="flex space-x-2">
+                <input 
+                    type="text" 
+                    id="newPlaylistName" 
+                    placeholder="Playlist name..." 
+                    class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                <button 
+                    onclick="addToNewPlaylist()" 
+                    class="px-4 py-2 bg-purple-600 text-white font-medium rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                    Create & Add
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const activityId = '{{ activity.id }}';
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const csrftoken = getCookie('csrftoken');
+
+function showAddToPlaylistModal() {
+    // Load user's playlists
+    fetch('/playlists/json/')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('playlistsContainer');
+            if (data.playlists.length === 0) {
+                container.innerHTML = '<p class="text-sm text-gray-500 italic">No playlists yet. Create one below!</p>';
+            } else {
+                container.innerHTML = data.playlists.map(playlist => `
+                    <button 
+                        onclick="addToExistingPlaylist('${playlist.id}')"
+                        class="w-full text-left px-3 py-2 bg-gray-50 hover:bg-purple-50 border border-gray-200 rounded-md transition-colors"
+                    >
+                        <div class="font-medium text-gray-900">${playlist.name}</div>
+                        ${playlist.description ? `<div class="text-xs text-gray-600 truncate">${playlist.description}</div>` : ''}
+                    </button>
+                `).join('');
+            }
+            document.getElementById('playlistModal').classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Error loading playlists:', error);
+            alert('Failed to load playlists');
+        });
+}
+
+function closePlaylistModal() {
+    document.getElementById('playlistModal').classList.add('hidden');
+}
+
+function addToExistingPlaylist(playlistId) {
+    const formData = new FormData();
+    formData.append('activity_id', activityId);
+    formData.append('playlist_id', playlistId);
+    formData.append('create_new', 'false');
+    
+    fetch('/playlists/add/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            closePlaylistModal();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to add to playlist');
+    });
+}
+
+function addToNewPlaylist() {
+    const playlistName = document.getElementById('newPlaylistName').value.trim();
+    if (!playlistName) {
+        alert('Please enter a playlist name');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('activity_id', activityId);
+    formData.append('new_playlist_name', playlistName);
+    formData.append('create_new', 'true');
+    
+    fetch('/playlists/add/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            closePlaylistModal();
+            document.getElementById('newPlaylistName').value = '';
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to create playlist');
+    });
+}
+
+// Close modal when clicking outside
+document.getElementById('playlistModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePlaylistModal();
+    }
+});
+</script>
+{% endif %}
+
 {% endblock %}
-
-
-
-
-
-
-
-
-

@@ -6,7 +6,8 @@ from . import views, library_views, playlist_views, approval_views, bulk_views, 
 router = DefaultRouter()
 router.register(r'videos', views.VideoAssetViewSet, basename='videoasset')
 router.register(r'resources', views.ResourceViewSet, basename='resource')
-router.register(r'playlists', playlist_views.EnhancedPlaylistViewSet, basename='playlist')
+# Note: Playlist management moved to V4 URLs (content/v4_urls.py)
+# router.register(r'playlists', playlist_views.EnhancedPlaylistViewSet, basename='playlist')
 router.register(r'approval/videos', approval_views.ContentApprovalViewSet, basename='approval-video')
 
 urlpatterns = [
@@ -48,6 +49,9 @@ urlpatterns = [
     # Upload endpoints
     path('uploads/sign/', views.request_signed_upload_url, name='signed-upload-url'),
     path('uploads/complete/', views.upload_complete, name='upload-complete'),
+    
+    # Firebase Storage upload endpoints
+    path('storage/', include('content.upload_urls')),
     
     # Download endpoints
     path('resources/<uuid:resource_id>/download/', views.generate_resource_download_url, name='resource-download'),

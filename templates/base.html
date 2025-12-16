@@ -5,8 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Fraction Ball{% endblock %}</title>
     
-    <!-- Tailwind CSS -->
-    <link href="{% load static %}{% static 'dist/output.css' %}" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'fraction-red': '#EF4444',
+                        'fraction-yellow': '#FDE047',
+                    }
+                }
+            }
+        }
+    </script>
     
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.8"></script>
@@ -48,6 +60,12 @@
                     <a href="/" class="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors">HOME</a>
                     <a href="/community/" class="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors">COMMUNITY</a>
                     <a href="/faq/" class="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors">FAQ</a>
+                    {% if user.is_authenticated %}
+                    <a href="/playlists/" class="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors">PLAYLISTS</a>
+                    <a href="/upload/" class="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors">UPLOAD</a>
+                    <a href="/my-uploads/" class="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors">MY UPLOADS</a>
+                    <a href="/analytics/" class="text-base font-medium text-gray-700 hover:text-gray-900 transition-colors">ANALYTICS</a>
+                    {% endif %}
                 </div>
                 
                 <!-- Right Side Icons -->
@@ -61,16 +79,31 @@
                             <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
                         </button>
                         
-                        <!-- User Profile -->
-                        <button class="p-2 text-gray-600 hover:text-gray-900 transition-colors">
-                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
-                            </svg>
-                        </button>
-                        
-                        {% if user.is_staff %}
-                            <a href="/admin/" class="text-sm text-red-600 hover:text-red-700 font-medium">Admin</a>
-                        {% endif %}
+                        <!-- User Profile with dropdown -->
+                        <div class="relative">
+                            <button id="userMenuBtn" class="p-2 text-gray-600 hover:text-gray-900 transition-colors">
+                                <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                                    <circle cx="10" cy="10" r="9" fill="#3B82F6"/>
+                                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" fill="white"/>
+                                </svg>
+                            </button>
+                            
+                            <!-- Dropdown menu (hidden by default) -->
+                            <div id="userDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-10 border border-gray-200">
+                                <div class="px-4 py-2 border-b border-gray-200">
+                                    <p id="userName" class="text-sm font-medium text-gray-900">{{ user.get_full_name|default:user.username }}</p>
+                                    <p id="userEmail" class="text-xs text-gray-500">{{ user.email }}</p>
+                                </div>
+                                {% if user.is_staff %}
+                                    <a href="/admin/" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        Admin Panel
+                                    </a>
+                                {% endif %}
+                                <button id="logoutBtn" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    Sign Out
+                                </button>
+                            </div>
+                        </div>
                     {% else %}
                         <a href="/accounts/login/" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
                             Sign In
@@ -157,5 +190,96 @@
     </footer>
 
     {% block extra_body %}{% endblock %}
+    
+    <!-- Firebase SDK and Authentication -->
+    {% if user.is_authenticated %}
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAelVAxdAl9C_UxRqc2lWZNABDRNt1kPNo",
+            authDomain: "fractionball-lms.firebaseapp.com",
+            projectId: "fractionball-lms",
+            storageBucket: "fractionball-lms.firebasestorage.app",
+            messagingSenderId: "110595744029",
+            appId: "1:110595744029:web:c66d6c0cdc0df3cf33c1f4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Check authentication
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // User is signed in
+                console.log('✅ User authenticated:', user.email);
+            } else {
+                // No user signed in, redirect to login if on protected page
+                console.log('⚠️ No user authenticated');
+                // Optionally redirect to login
+                // window.location.href = '/accounts/login/';
+            }
+        });
+
+        // User menu dropdown toggle
+        const userMenuBtn = document.getElementById('userMenuBtn');
+        const userDropdown = document.getElementById('userDropdown');
+        
+        if (userMenuBtn && userDropdown) {
+            userMenuBtn.addEventListener('click', () => {
+                userDropdown.classList.toggle('hidden');
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!userMenuBtn.contains(e.target) && !userDropdown.contains(e.target)) {
+                    userDropdown.classList.add('hidden');
+                }
+            });
+        }
+        
+        // Logout functionality
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                try {
+                    await signOut(auth);
+                    
+                    // Clear session on backend
+                    const response = await fetch('/accounts/logout/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+                    
+                    // Redirect to login
+                    window.location.href = '/accounts/login/';
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    alert('Failed to log out: ' + error.message);
+                }
+            });
+        }
+        
+        // Helper function to get cookie
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+    {% endif %}
 </body>
 </html>

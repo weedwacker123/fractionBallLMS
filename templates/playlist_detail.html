@@ -1,0 +1,328 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ playlist.name }} - Fraction Ball{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex justify-between items-center">
+            <div class="flex-1">
+                <div class="flex items-center space-x-3">
+                    <a href="/playlists/" class="text-gray-600 hover:text-gray-900">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                    </a>
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">{{ playlist.name }}</h1>
+                        <p class="mt-1 text-sm text-gray-600">
+                            {{ playlist_data|length }} video{{ playlist_data|length|pluralize }} • 
+                            {% if playlist.is_public %}Public{% else %}Private{% endif %} • 
+                            By {{ playlist.owner.get_full_name|default:playlist.owner.username }}
+                        </p>
+                    </div>
+                </div>
+                {% if playlist.description %}
+                <p class="mt-3 text-gray-700">{{ playlist.description }}</p>
+                {% endif %}
+            </div>
+            
+            {% if can_edit %}
+            <div class="flex space-x-2">
+                <button onclick="showShareModal()" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+                    </svg>
+                    Share
+                </button>
+                <button onclick="showSettingsModal()" class="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    Settings
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Playlist Items -->
+    {% if playlist_data %}
+    <div class="bg-white rounded-lg shadow-md border border-gray-200">
+        <div class="divide-y divide-gray-200">
+            {% for item in playlist_data %}
+            <div class="p-6 hover:bg-gray-50 transition-colors">
+                <div class="flex items-start space-x-4">
+                    <!-- Order Number -->
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                            <span class="text-sm font-bold text-gray-700">{{ forloop.counter }}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div class="flex-1 min-w-0">
+                        {% if item.activity %}
+                        <a href="/activities/{{ item.activity.slug }}/" class="block group">
+                            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-red-600">{{ item.activity.title }}</h3>
+                            <p class="text-sm text-gray-600 mt-1">{{ item.activity.description|truncatewords:20 }}</p>
+                            <div class="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                                <span>Grade {{ item.activity.grade }}</span>
+                                <span>•</span>
+                                <span>{{ item.activity.location|title }}</span>
+                            </div>
+                        </a>
+                        {% else %}
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">{{ item.item.video_asset.title }}</h3>
+                            <p class="text-sm text-gray-600 mt-1">{{ item.item.video_asset.description|truncatewords:20 }}</p>
+                        </div>
+                        {% endif %}
+                        
+                        {% if item.item.notes %}
+                        <p class="text-sm text-gray-500 italic mt-2">{{ item.item.notes }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Actions -->
+                    {% if can_edit %}
+                    <div class="flex-shrink-0">
+                        <button onclick="removeFromPlaylist('{{ item.item.id }}')" class="p-2 text-red-600 hover:bg-red-50 rounded transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="bg-gray-50 rounded-lg p-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">Playlist is empty</h3>
+        <p class="text-gray-600 mb-4">Add activities to this playlist to get started</p>
+        <a href="/" class="inline-block px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">
+            Browse Activities
+        </a>
+    </div>
+    {% endif %}
+    
+    {% if can_edit and share_links %}
+    <!-- Share Links Section -->
+    <div class="mt-8 bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Active Share Links</h3>
+        <div class="space-y-3">
+            {% for share in share_links %}
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div class="flex-1">
+                    <code class="text-sm text-gray-700">{{ request.scheme }}://{{ request.get_host }}/playlists/shared/{{ share.share_token }}/</code>
+                    <p class="text-xs text-gray-500 mt-1">
+                        Created {{ share.created_at|timesince }} ago • 
+                        {{ share.view_count }} view{{ share.view_count|pluralize }}
+                        {% if share.expires_at %} • Expires {{ share.expires_at|timeuntil }} from now{% endif %}
+                    </p>
+                </div>
+                <button onclick="copyShareLink('{{ request.scheme }}://{{ request.get_host }}/playlists/shared/{{ share.share_token }}/')" class="ml-4 px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors">
+                    Copy
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Share Modal -->
+<div id="shareModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Share Playlist</h3>
+        <form id="shareForm" onsubmit="createShareLink(event)">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Expiration (optional)</label>
+                <select name="expiration_days" class="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500">
+                    <option value="">Never expires</option>
+                    <option value="1">1 day</option>
+                    <option value="7">7 days</option>
+                    <option value="30">30 days</option>
+                    <option value="90">90 days</option>
+                </select>
+            </div>
+            <div class="flex space-x-3">
+                <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700">
+                    Create Link
+                </button>
+                <button type="button" onclick="closeShareModal()" class="flex-1 px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-md hover:bg-gray-200">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Playlist Settings</h3>
+        <form id="settingsForm" onsubmit="updateSettings(event)">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                <input type="text" name="name" value="{{ playlist.name }}" class="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500" required>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea name="description" rows="3" class="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500">{{ playlist.description }}</textarea>
+            </div>
+            <div class="mb-4">
+                <label class="flex items-center">
+                    <input type="checkbox" name="is_public" class="rounded border-gray-300 text-red-600 focus:ring-red-500" {% if playlist.is_public %}checked{% endif %}>
+                    <span class="ml-2 text-sm text-gray-700">Make this playlist public</span>
+                </label>
+            </div>
+            <div class="flex space-x-3">
+                <button type="submit" class="flex-1 px-4 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700">
+                    Save Changes
+                </button>
+                <button type="button" onclick="closeSettingsModal()" class="flex-1 px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-md hover:bg-gray-200">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+const csrftoken = getCookie('csrftoken');
+const playlistId = '{{ playlist.id }}';
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function removeFromPlaylist(itemId) {
+    if (!confirm('Remove this item from the playlist?')) return;
+    
+    fetch(`/playlists/item/${itemId}/remove/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to remove item');
+    });
+}
+
+function showShareModal() {
+    document.getElementById('shareModal').classList.remove('hidden');
+}
+
+function closeShareModal() {
+    document.getElementById('shareModal').classList.add('hidden');
+}
+
+function createShareLink(event) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    
+    fetch(`/playlists/${playlistId}/share/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Share link created!\n\n' + data.share_url);
+            window.location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to create share link');
+    });
+}
+
+function copyShareLink(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        alert('Link copied to clipboard!');
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+    });
+}
+
+function showSettingsModal() {
+    document.getElementById('settingsModal').classList.remove('hidden');
+}
+
+function closeSettingsModal() {
+    document.getElementById('settingsModal').classList.add('hidden');
+}
+
+function updateSettings(event) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    
+    fetch(`/playlists/${playlistId}/settings/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            window.location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to update settings');
+    });
+}
+
+// Close modals when clicking outside
+document.getElementById('shareModal').addEventListener('click', function(e) {
+    if (e.target === this) closeShareModal();
+});
+document.getElementById('settingsModal').addEventListener('click', function(e) {
+    if (e.target === this) closeSettingsModal();
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload Content - Fraction Ball{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-xl shadow-lg p-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Upload Content</h1>
+        <p class="text-gray-600 mb-8">Upload videos and resources for your Fraction Ball activities</p>
+        
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="mb-6 p-4 rounded-lg {% if message.tags == 'error' %}bg-red-50 border border-red-200 text-red-800{% else %}bg-green-50 border border-green-200 text-green-800{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+        
+        <!-- Upload Form -->
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+            
+            <!-- File Type Selection -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-3">What are you uploading?</label>
+                <div class="grid grid-cols-2 gap-4">
+                    <label class="relative flex items-center p-4 cursor-pointer border-2 border-gray-300 rounded-lg hover:border-red-500 transition-colors">
+                        <input type="radio" name="file_type" value="video" checked class="w-4 h-4 text-red-600 mr-3">
+                        <div>
+                            <p class="font-medium text-gray-900">Video</p>
+                            <p class="text-sm text-gray-500">MP4, MOV, AVI (max 500MB)</p>
+                        </div>
+                    </label>
+                    
+                    <label class="relative flex items-center p-4 cursor-pointer border-2 border-gray-300 rounded-lg hover:border-red-500 transition-colors">
+                        <input type="radio" name="file_type" value="resource" class="w-4 h-4 text-red-600 mr-3">
+                        <div>
+                            <p class="font-medium text-gray-900">Resource</p>
+                            <p class="text-sm text-gray-500">PDF, DOC, PPT (max 50MB)</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- File Upload -->
+            <div>
+                <label for="file" class="block text-sm font-medium text-gray-700 mb-2">
+                    Select File *
+                </label>
+                <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-red-500 transition-colors">
+                    <div class="space-y-1 text-center">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <div class="flex text-sm text-gray-600">
+                            <label for="file" class="relative cursor-pointer bg-white rounded-md font-medium text-red-600 hover:text-red-700">
+                                <span>Upload a file</span>
+                                <input id="file" name="file" type="file" class="sr-only" required>
+                            </label>
+                            <p class="pl-1">or drag and drop</p>
+                        </div>
+                        <p class="text-xs text-gray-500">
+                            Videos: MP4, MOV, AVI, MKV<br>
+                            Resources: PDF, DOC, PPT, XLS, TXT
+                        </p>
+                    </div>
+                </div>
+                <p id="file-name" class="mt-2 text-sm text-gray-600"></p>
+            </div>
+            
+            <!-- Title -->
+            <div>
+                <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
+                    Title *
+                </label>
+                <input 
+                    type="text" 
+                    id="title" 
+                    name="title" 
+                    required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="Enter a descriptive title"
+                >
+            </div>
+            
+            <!-- Description -->
+            <div>
+                <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                </label>
+                <textarea 
+                    id="description" 
+                    name="description" 
+                    rows="3"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="Optional description"
+                ></textarea>
+            </div>
+            
+            <!-- Grade and Topic -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="grade" class="block text-sm font-medium text-gray-700 mb-2">
+                        Grade Level
+                    </label>
+                    <select 
+                        id="grade" 
+                        name="grade"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    >
+                        <option value="">Select grade (optional)</option>
+                        <option value="K">Kindergarten</option>
+                        <option value="1">Grade 1</option>
+                        <option value="2">Grade 2</option>
+                        <option value="3">Grade 3</option>
+                        <option value="4">Grade 4</option>
+                        <option value="5">Grade 5</option>
+                        <option value="6">Grade 6</option>
+                        <option value="7">Grade 7</option>
+                        <option value="8">Grade 8</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="topic" class="block text-sm font-medium text-gray-700 mb-2">
+                        Topic
+                    </label>
+                    <select 
+                        id="topic" 
+                        name="topic"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    >
+                        <option value="">Select topic (optional)</option>
+                        <option value="fractions_basics">Fractions Basics</option>
+                        <option value="equivalent_fractions">Equivalent Fractions</option>
+                        <option value="comparing_ordering">Comparing/Ordering</option>
+                        <option value="number_line">Number Line</option>
+                        <option value="mixed_improper">Mixed ↔ Improper</option>
+                        <option value="add_subtract_fractions">Add/Subtract Fractions</option>
+                        <option value="multiply_divide_fractions">Multiply/Divide Fractions</option>
+                        <option value="decimals_percents">Decimals & Percents</option>
+                        <option value="ratio_proportion">Ratio/Proportion</option>
+                        <option value="word_problems">Word Problems</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Submit Button -->
+            <div class="flex items-center justify-between pt-4">
+                <a href="/my-uploads/" class="text-gray-600 hover:text-gray-900 font-medium">
+                    View My Uploads
+                </a>
+                <button 
+                    type="submit"
+                    class="px-8 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all"
+                >
+                    Upload File
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Info Box -->
+    <div class="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
+        <h3 class="font-medium text-green-900 mb-2">🔥 Firebase Cloud Storage Enabled</h3>
+        <p class="text-sm text-green-800">
+            All files are securely uploaded to Firebase Cloud Storage. Your content is stored in the cloud and accessible from anywhere.
+        </p>
+    </div>
+</div>
+
+<script>
+// Show selected filename
+document.getElementById('file').addEventListener('change', function(e) {
+    const fileName = e.target.files[0]?.name;
+    if (fileName) {
+        document.getElementById('file-name').textContent = '📎 Selected: ' + fileName;
+        
+        // Auto-fill title if empty
+        const titleInput = document.getElementById('title');
+        if (!titleInput.value) {
+            // Remove extension and clean up filename
+            const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
+            const cleanName = nameWithoutExt.replace(/[_-]/g, ' ');
+            titleInput.value = cleanName;
+        }
+    }
+});
+</script>
+{% endblock %}
+
+
+
+
+

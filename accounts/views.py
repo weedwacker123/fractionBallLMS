@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate, login as auth_login
+from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
@@ -20,6 +21,34 @@ def login_view(request):
         return redirect('/')
     
     return render(request, 'login.html')
+
+
+def django_login_view(request):
+    """
+    Traditional Django login with username and password
+    """
+    if request.user.is_authenticated:
+        return redirect('/')
+    
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        
+        user = authenticate(request, username=username, password=password)
+        
+        if user is not None:
+            auth_login(request, user)
+            logger.info(f"User {username} logged in successfully")
+            messages.success(request, f'Welcome back, {user.get_full_name() or username}!')
+            
+            # Redirect to next page or home
+            next_url = request.GET.get('next', '/')
+            return redirect(next_url)
+        else:
+            logger.warning(f"Failed login attempt for username: {username}")
+            messages.error(request, 'Invalid username or password. Please try again.')
+    
+    return render(request, 'django_login.html')
 
 
 @require_http_methods(["POST"])
@@ -115,6 +144,7 @@ def verify_token(request):
         return JsonResponse({'error': 'Internal server error'}, status=500)
 
 
+@require_http_methods(["POST", "GET"])
 def logout_view(request):
     """
     Logout user by clearing session

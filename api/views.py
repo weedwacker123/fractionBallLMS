@@ -67,6 +67,7 @@ class UserViewSet(ModelViewSet):
     - System admins: can manage all users
     - School admins: can manage users in their school only
     """
+    queryset = User.objects.select_related('school').all()
     serializer_class = UserSerializer
     permission_classes = [IsSchoolAdmin]
     filter_backends = [DjangoFilterBackend]

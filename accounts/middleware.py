@@ -20,6 +20,10 @@ class FirebaseAuthMiddleware(MiddlewareMixin):
         # Skip API requests (handled by DRF authentication)
         if request.path.startswith('/api/'):
             return None
+        
+        # Skip admin and upload management requests (use Django session auth)
+        if request.path.startswith('/admin/') or request.path.startswith('/my-uploads/'):
+            return None
             
         # Check for Firebase token in session or cookies
         firebase_token = request.session.get('firebase_token') or request.COOKIES.get('firebase_token')

@@ -9,6 +9,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 from api.views import home as api_home
 from django.shortcuts import render
 from config import views as config_views
+from content.simple_upload_views import simple_upload_view, my_uploads_view, delete_video, delete_resource
 
 def upload_view(request):
     return render(request, 'upload.html')
@@ -29,8 +30,14 @@ urlpatterns = [
     # Legacy/Admin views
     path('api-home/', api_home, name='api-home'),
     
-    # Upload UI
-    path('upload/', upload_view, name='upload'),
+    # Upload UI (Simple - works without Firebase)
+    path('upload/', simple_upload_view, name='simple-upload'),
+    path('my-uploads/', my_uploads_view, name='my-uploads'),
+    path('my-uploads/delete-video/<uuid:video_id>/', delete_video, name='delete-video'),
+    path('my-uploads/delete-resource/<uuid:resource_id>/', delete_resource, name='delete-resource'),
+    
+    # Legacy upload UI
+    path('upload-old/', upload_view, name='upload-old'),
     
     # Library UI (Legacy)
     path('library/', library_view, name='library-old'),

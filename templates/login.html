@@ -36,6 +36,8 @@
         .btn-social:hover {
             background: #f9fafb;
             border-color: #d1d5db;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
         
         .btn-social:active {
@@ -84,6 +86,15 @@
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
@@ -101,26 +112,26 @@
                 </div>
             </div>
             <h1 class="text-3xl font-bold text-gray-900 mb-2">Welcome back</h1>
-            <p class="text-gray-600">Sign in to your account to continue</p>
+            <p class="text-gray-600">Sign in to continue</p>
         </div>
         
         <!-- Login Card -->
         <div class="bg-white rounded-xl shadow-lg p-8">
             <!-- Firebase Connection Status -->
-            <div id="connectionStatus" class="mb-6 p-3 rounded-lg hidden">
+            <div id="connectionStatus" class="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div class="flex items-center gap-2">
                     <div class="loading-spinner"></div>
-                    <span class="text-sm font-medium">Connecting to Firebase...</span>
+                    <span class="text-sm font-medium text-blue-800">Connecting to Firebase...</span>
                 </div>
             </div>
             
             <!-- Error Message -->
             <div id="errorMessage" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg hidden fade-in">
                 <div class="flex items-start gap-3">
-                    <svg class="w-5 h-5 text-red-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
                     </svg>
-                    <div>
+                    <div class="flex-1">
                         <h3 class="text-sm font-medium text-red-800">Authentication Error</h3>
                         <p class="text-sm text-red-700 mt-1" id="errorText"></p>
                     </div>
@@ -150,16 +161,6 @@
                     </svg>
                     <span>Continue with Google</span>
                 </button>
-                
-                <button id="microsoftSignInBtn" class="btn-social" type="button">
-                    <svg class="w-5 h-5" viewBox="0 0 24 24">
-                        <path fill="#f25022" d="M1 1h10v10H1z"/>
-                        <path fill="#00a4ef" d="M13 1h10v10H13z"/>
-                        <path fill="#7fba00" d="M1 13h10v10H1z"/>
-                        <path fill="#ffb900" d="M13 13h10v10H13z"/>
-                    </svg>
-                    <span>Continue with Microsoft</span>
-                </button>
             </div>
             
             <div class="divider">
@@ -177,6 +178,7 @@
                         id="email" 
                         name="email" 
                         required
+                        autocomplete="email"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                         placeholder="you@example.com"
                     >
@@ -191,13 +193,14 @@
                         id="password" 
                         name="password" 
                         required
+                        autocomplete="current-password"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                         placeholder="••••••••"
                     >
                 </div>
                 
                 <div class="flex items-center justify-between text-sm">
-                    <label class="flex items-center">
+                    <label class="flex items-center cursor-pointer">
                         <input type="checkbox" class="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500">
                         <span class="ml-2 text-gray-600">Remember me</span>
                     </label>
@@ -209,7 +212,7 @@
                 <button 
                     type="submit" 
                     id="emailSignInBtn"
-                    class="w-full bg-red-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all"
+                    class="w-full bg-red-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                 >
                     <span id="signInText">Sign In</span>
                     <div id="signInLoader" class="loading-spinner mx-auto hidden"></div>
@@ -236,7 +239,6 @@
             signInWithEmailAndPassword,
             signInWithPopup,
             GoogleAuthProvider,
-            OAuthProvider,
             onAuthStateChanged
         } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
@@ -252,21 +254,38 @@
         };
 
         // Initialize Firebase
-        let app, auth, googleProvider, microsoftProvider;
+        let app, auth, googleProvider;
         
         function showConnectionStatus(message, type = 'loading') {
             const statusEl = document.getElementById('connectionStatus');
-            statusEl.className = `mb-6 p-3 rounded-lg ${type === 'error' ? 'bg-red-50 border border-red-200' : 'bg-blue-50 border border-blue-200'}`;
-            statusEl.innerHTML = `
-                <div class="flex items-center gap-2">
-                    ${type === 'loading' ? '<div class="loading-spinner"></div>' : ''}
-                    <span class="text-sm font-medium ${type === 'error' ? 'text-red-800' : 'text-blue-800'}">${message}</span>
-                </div>
-            `;
-            statusEl.classList.remove('hidden');
-            
             if (type === 'success') {
-                setTimeout(() => statusEl.classList.add('hidden'), 3000);
+                statusEl.className = 'mb-6 p-3 bg-green-50 border border-green-200 rounded-lg';
+                statusEl.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-sm font-medium text-green-800">${message}</span>
+                    </div>
+                `;
+            } else if (type === 'error') {
+                statusEl.className = 'mb-6 p-3 bg-red-50 border border-red-200 rounded-lg';
+                statusEl.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-sm font-medium text-red-800">${message}</span>
+                    </div>
+                `;
+            } else {
+                statusEl.className = 'mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg';
+                statusEl.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <div class="loading-spinner"></div>
+                        <span class="text-sm font-medium text-blue-800">${message}</span>
+                    </div>
+                `;
             }
         }
         
@@ -278,7 +297,7 @@
             const errorEl = document.getElementById('errorMessage');
             document.getElementById('errorText').textContent = message;
             errorEl.classList.remove('hidden');
-            setTimeout(() => errorEl.classList.add('hidden'), 5000);
+            setTimeout(() => errorEl.classList.add('hidden'), 6000);
         }
         
         function showSuccess() {
@@ -286,15 +305,14 @@
         }
         
         function setLoading(button, loading) {
-            const btnText = button.querySelector('span');
             if (loading) {
                 button.disabled = true;
                 button.style.opacity = '0.7';
-                if (btnText) btnText.style.opacity = '0.5';
+                button.style.cursor = 'not-allowed';
             } else {
                 button.disabled = false;
                 button.style.opacity = '1';
-                if (btnText) btnText.style.opacity = '1';
+                button.style.cursor = 'pointer';
             }
         }
         
@@ -305,34 +323,33 @@
             auth = getAuth(app);
             
             // Test Firebase connection
-            auth.onAuthStateChanged(() => {
-                hideConnectionStatus();
-                console.log('✅ Firebase connected successfully');
-            });
+            setTimeout(() => {
+                showConnectionStatus('✅ Firebase connected', 'success');
+                setTimeout(() => hideConnectionStatus(), 2000);
+            }, 1000);
             
             googleProvider = new GoogleAuthProvider();
             googleProvider.addScope('email');
             googleProvider.addScope('profile');
             
-            microsoftProvider = new OAuthProvider('microsoft.com');
-            microsoftProvider.addScope('email');
-            microsoftProvider.addScope('profile');
+            console.log('✅ Firebase initialized successfully');
             
         } catch (error) {
             console.error('Firebase initialization error:', error);
-            showConnectionStatus('Failed to connect to Firebase. Please refresh the page.', 'error');
+            showConnectionStatus('Failed to connect to Firebase', 'error');
             showError('Firebase connection failed: ' + error.message);
         }
         
-        // Handle token and redirect
+        // Handle successful authentication
         async function handleAuthSuccess(user) {
             try {
+                console.log('✅ Authentication successful:', user.email);
                 showSuccess();
                 
                 // Get Firebase ID token
                 const idToken = await user.getIdToken();
                 
-                // Store token in cookie and session
+                // Store token in cookie
                 document.cookie = `firebase_token=${idToken}; path=/; max-age=3600; SameSite=Lax`;
                 
                 // Send to backend for verification
@@ -346,17 +363,20 @@
                 });
                 
                 if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Backend verification successful:', data);
+                    
                     // Redirect to home page
                     setTimeout(() => {
                         window.location.href = '/';
-                    }, 1000);
+                    }, 1500);
                 } else {
                     const data = await response.json();
                     throw new Error(data.error || 'Authentication failed on server');
                 }
             } catch (error) {
                 console.error('Auth success handler error:', error);
-                showError(error.message);
+                showError(error.message || 'Failed to complete authentication');
             }
         }
         
@@ -374,28 +394,10 @@
                 
                 if (error.code === 'auth/popup-closed-by-user') {
                     showError('Sign in cancelled');
+                } else if (error.code === 'auth/popup-blocked') {
+                    showError('Popup blocked. Please allow popups for this site.');
                 } else {
                     showError('Google sign in failed: ' + (error.message || 'Unknown error'));
-                }
-            }
-        });
-        
-        // Microsoft Sign In
-        document.getElementById('microsoftSignInBtn').addEventListener('click', async () => {
-            const btn = document.getElementById('microsoftSignInBtn');
-            setLoading(btn, true);
-            
-            try {
-                const result = await signInWithPopup(auth, microsoftProvider);
-                await handleAuthSuccess(result.user);
-            } catch (error) {
-                console.error('Microsoft sign in error:', error);
-                setLoading(btn, false);
-                
-                if (error.code === 'auth/popup-closed-by-user') {
-                    showError('Sign in cancelled');
-                } else {
-                    showError('Microsoft sign in failed: ' + (error.message || 'Unknown error'));
                 }
             }
         });
@@ -442,6 +444,9 @@
                     case 'auth/invalid-credential':
                         errorMessage = 'Invalid email or password';
                         break;
+                    case 'auth/too-many-requests':
+                        errorMessage = 'Too many failed attempts. Please try again later.';
+                        break;
                     default:
                         errorMessage = error.message || 'An error occurred during sign in';
                 }
@@ -470,7 +475,7 @@
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 console.log('User already authenticated:', user.email);
-                // Optional: Auto-redirect if already signed in
+                // Optionally auto-redirect
                 // window.location.href = '/';
             }
         });

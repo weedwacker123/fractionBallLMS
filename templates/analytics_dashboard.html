@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+
+{% block title %}Analytics Dashboard - Fraction Ball{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
+                <p class="mt-2 text-sm text-gray-600">Last {{ days }} days of activity</p>
+            </div>
+            <div class="flex space-x-3">
+                <!-- Date Range Filter -->
+                <form method="get" class="flex items-center space-x-2">
+                    <label for="days" class="text-sm font-medium text-gray-700">Show:</label>
+                    <select name="days" id="days" onchange="this.form.submit()" class="rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 text-sm">
+                        <option value="7" {% if days == 7 %}selected{% endif %}>Last 7 days</option>
+                        <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 days</option>
+                        <option value="90" {% if days == 90 %}selected{% endif %}>Last 90 days</option>
+                        <option value="365" {% if days == 365 %}selected{% endif %}>Last year</option>
+                    </select>
+                </form>
+                
+                <!-- Export Dropdown -->
+                <div class="relative inline-block text-left">
+                    <button onclick="toggleExportMenu()" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                        Export
+                    </button>
+                    <div id="exportMenu" class="hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                        <div class="py-1" role="menu">
+                            <a href="?days={{ days }}&export=csv&type=views" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Views CSV</a>
+                            <a href="?days={{ days }}&export=csv&type=downloads" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Downloads CSV</a>
+                            <a href="?days={{ days }}&export=csv&type=summary" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Summary CSV</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+        <!-- Total Videos -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Videos</dt>
+                            <dd class="text-2xl font-semibold text-gray-900">{{ total_videos }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Resources -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Resources</dt>
+                            <dd class="text-2xl font-semibold text-gray-900">{{ total_resources }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Views -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-8 w-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Views</dt>
+                            <dd class="text-2xl font-semibold text-gray-900">{{ total_views }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Downloads -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-8 w-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Downloads</dt>
+                            <dd class="text-2xl font-semibold text-gray-900">{{ total_downloads }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- View Trends -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">View Trends (Last 7 Days)</h3>
+            <div class="space-y-2">
+                {% for trend in view_trends %}
+                <div class="flex items-center">
+                    <span class="text-sm text-gray-600 w-16">{{ trend.date }}</span>
+                    <div class="flex-1 ml-4">
+                        <div class="bg-gray-200 rounded-full h-4">
+                            <div class="bg-blue-600 rounded-full h-4" style="width: {{ trend.views|default:0|add:1 }}0%"></div>
+                        </div>
+                    </div>
+                    <span class="ml-4 text-sm font-medium text-gray-900 w-12 text-right">{{ trend.views }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Videos by Grade -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Videos by Grade Level</h3>
+            <div class="space-y-3">
+                {% for item in videos_by_grade %}
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium text-gray-700">
+                        {% if item.grade == 'K' %}Kindergarten{% else %}Grade {{ item.grade }}{% endif %}
+                    </span>
+                    <span class="text-sm text-gray-900">{{ item.count }} video{{ item.count|pluralize }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Popular Content -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Popular Videos -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Most Viewed Videos</h3>
+            </div>
+            <ul class="divide-y divide-gray-200">
+                {% for video in popular_videos %}
+                <li class="px-6 py-4 hover:bg-gray-50">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 truncate">{{ video.title }}</p>
+                            <p class="text-sm text-gray-500">{{ video.get_grade_display }} • {{ video.get_topic_display }}</p>
+                        </div>
+                        <div class="ml-4 flex-shrink-0">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {{ video.view_count }} view{{ video.view_count|pluralize }}
+                            </span>
+                        </div>
+                    </div>
+                </li>
+                {% empty %}
+                <li class="px-6 py-4 text-center text-gray-500">No video views yet</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Popular Resources -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Most Downloaded Resources</h3>
+            </div>
+            <ul class="divide-y divide-gray-200">
+                {% for resource in popular_resources %}
+                <li class="px-6 py-4 hover:bg-gray-50">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 truncate">{{ resource.title }}</p>
+                            <p class="text-sm text-gray-500">{{ resource.get_file_type_display }} • {{ resource.file_size_formatted }}</p>
+                        </div>
+                        <div class="ml-4 flex-shrink-0">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                {{ resource.download_count }} download{{ resource.download_count|pluralize }}
+                            </span>
+                        </div>
+                    </div>
+                </li>
+                {% empty %}
+                <li class="px-6 py-4 text-center text-gray-500">No resource downloads yet</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Recent Views -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Recent Views</h3>
+            </div>
+            <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                {% for view in recent_views %}
+                <li class="px-6 py-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 truncate">{{ view.asset.title }}</p>
+                            <p class="text-xs text-gray-500">{{ view.user.get_full_name|default:view.user.username }}</p>
+                        </div>
+                        <div class="ml-4 text-right">
+                            <p class="text-xs text-gray-500">{{ view.viewed_at|timesince }} ago</p>
+                        </div>
+                    </div>
+                </li>
+                {% empty %}
+                <li class="px-6 py-4 text-center text-gray-500">No recent views</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Recent Downloads -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Recent Downloads</h3>
+            </div>
+            <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                {% for download in recent_downloads %}
+                <li class="px-6 py-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 truncate">{{ download.resource.title }}</p>
+                            <p class="text-xs text-gray-500">{{ download.user.get_full_name|default:download.user.username }}</p>
+                        </div>
+                        <div class="ml-4 text-right">
+                            <p class="text-xs text-gray-500">{{ download.downloaded_at|timesince }} ago</p>
+                        </div>
+                    </div>
+                </li>
+                {% empty %}
+                <li class="px-6 py-4 text-center text-gray-500">No recent downloads</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleExportMenu() {
+    const menu = document.getElementById('exportMenu');
+    menu.classList.toggle('hidden');
+}
+
+// Close export menu when clicking outside
+document.addEventListener('click', function(event) {
+    const menu = document.getElementById('exportMenu');
+    const button = event.target.closest('button[onclick="toggleExportMenu()"]');
+    if (!button && !menu.contains(event.target)) {
+        menu.classList.add('hidden');
+    }
+});
+</script>
+{% endblock %}
+

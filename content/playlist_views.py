@@ -1,579 +1,461 @@
 """
-Enhanced playlist views with sharing, duplication, and reordering
+Playlist management views for V4 interface
+Allows teachers to create, manage, and share playlists of activities
 """
-from rest_framework import generics, status, permissions
-from rest_framework.decorators import api_view, permission_classes, action
-from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet
-from django_filters.rest_framework import DjangoFilterBackend
-from django.contrib.auth import get_user_model
-from django.db import models, transaction
-from django.utils import timezone
-from django.shortcuts import get_object_or_404
-from datetime import timedelta
-from accounts.permissions import IsTeacher
-from .models import (
-    Playlist, PlaylistItem, PlaylistShare, AuditLog, 
-    AssetView, AssetDownload, VideoAsset, Resource
-)
-from .serializers import (
-    PlaylistSerializer, PlaylistItemSerializer, 
-    PlaylistShareSerializer, AuditLogSerializer
-)
 import logging
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_http_methods, require_POST
+from django.http import JsonResponse
+from django.db.models import Count, Q
+from django.utils import timezone
+from .models import Playlist, PlaylistItem, PlaylistShare, Activity, VideoAsset
 import uuid
 
 logger = logging.getLogger(__name__)
-User = get_user_model()
 
 
-class EnhancedPlaylistViewSet(ModelViewSet):
+@login_required
+def my_playlists(request):
     """
-    Enhanced playlist management with sharing and duplication
+    View user's playlists
     """
-    serializer_class = PlaylistSerializer
-    permission_classes = [IsTeacher]
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['is_public', 'owner']
-    search_fields = ['name', 'description']
-    ordering_fields = ['name', 'created_at', 'updated_at']
-    ordering = ['-updated_at']
+    # Get user's own playlists
+    my_playlists = Playlist.objects.filter(
+        owner=request.user
+    ).annotate(
+        video_count=Count('playlistitem')
+    ).order_by('-updated_at')
     
-    def get_queryset(self):
-        """Playlists accessible to the user"""
-        queryset = Playlist.objects.select_related(
-            'owner', 'school'
-        ).prefetch_related(
-            'playlistitem_set__video_asset'
-        ).filter(
-            school=self.request.user.school
-        )
-        
-        # Users can see their own playlists or public ones
-        if not (self.request.user.is_admin or self.request.user.is_school_admin):
-            queryset = queryset.filter(
-                models.Q(owner=self.request.user) | models.Q(is_public=True)
-            )
-        
-        return queryset
+    # Get shared playlists (public playlists from same school)
+    shared_playlists = Playlist.objects.filter(
+        school=request.user.school,
+        is_public=True
+    ).exclude(
+        owner=request.user
+    ).annotate(
+        video_count=Count('playlistitem')
+    ).order_by('-updated_at')[:10]
     
-    def perform_create(self, serializer):
-        """Set owner and school from request user"""
-        serializer.save(
-            owner=self.request.user,
-            school=self.request.user.school
-        )
-    
-    @action(detail=True, methods=['post'])
-    def add_item(self, request, pk=None):
-        """
-        Add a video to the playlist
-        POST /api/playlists/{id}/add_item/
-        """
-        playlist = self.get_object()
-        
-        # Check ownership or admin permissions
-        if not (
-            playlist.owner == request.user or 
-            request.user.is_admin or 
-            request.user.is_school_admin
-        ):
-            return Response(
-                {'error': 'Permission denied'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        video_id = request.data.get('video_id')
-        notes = request.data.get('notes', '')
-        order = request.data.get('order')
-        
-        if not video_id:
-            return Response(
-                {'error': 'video_id is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            # Get video and verify access
-            video = VideoAsset.objects.get(
-                id=video_id,
-                school=request.user.school,
-                status='PUBLISHED'
-            )
-            
-            # Check if video is already in playlist
-            if PlaylistItem.objects.filter(playlist=playlist, video_asset=video).exists():
-                return Response(
-                    {'error': 'Video already in playlist'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Create playlist item
-            if order:
-                # Insert at specific position, shift others
-                PlaylistItem.objects.filter(
-                    playlist=playlist, 
-                    order__gte=order
-                ).update(order=models.F('order') + 1)
-            else:
-                # Add at end
-                last_item = PlaylistItem.objects.filter(playlist=playlist).order_by('-order').first()
-                order = (last_item.order + 1) if last_item else 1
-            
-            playlist_item = PlaylistItem.objects.create(
-                playlist=playlist,
-                video_asset=video,
-                order=order,
-                notes=notes
-            )
-            
-            # Log action
-            AuditLog.objects.create(
-                action='PLAYLIST_ITEM_ADDED',
-                user=request.user,
-                metadata={
-                    'playlist_id': str(playlist.id),
-                    'playlist_name': playlist.name,
-                    'video_id': str(video.id),
-                    'video_title': video.title,
-                    'order': order
-                },
-                ip_address=self.get_client_ip(request)
-            )
-            
-            serializer = PlaylistItemSerializer(playlist_item)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-            
-        except VideoAsset.DoesNotExist:
-            return Response(
-                {'error': 'Video not found or not accessible'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            logger.error(f"Failed to add item to playlist {pk}: {e}")
-            return Response(
-                {'error': 'Failed to add item to playlist'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-    
-    @action(detail=True, methods=['delete'])
-    def remove_item(self, request, pk=None):
-        """
-        Remove a video from the playlist
-        DELETE /api/playlists/{id}/remove_item/
-        """
-        playlist = self.get_object()
-        
-        # Check ownership or admin permissions
-        if not (
-            playlist.owner == request.user or 
-            request.user.is_admin or 
-            request.user.is_school_admin
-        ):
-            return Response(
-                {'error': 'Permission denied'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        item_id = request.data.get('item_id')
-        if not item_id:
-            return Response(
-                {'error': 'item_id is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            playlist_item = PlaylistItem.objects.get(
-                id=item_id,
-                playlist=playlist
-            )
-            
-            removed_order = playlist_item.order
-            playlist_item.delete()
-            
-            # Reorder remaining items
-            PlaylistItem.objects.filter(
-                playlist=playlist,
-                order__gt=removed_order
-            ).update(order=models.F('order') - 1)
-            
-            return Response(status=status.HTTP_204_NO_CONTENT)
-            
-        except PlaylistItem.DoesNotExist:
-            return Response(
-                {'error': 'Playlist item not found'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-    
-    @action(detail=True, methods=['put'])
-    def reorder(self, request, pk=None):
-        """
-        Reorder playlist items
-        PUT /api/playlists/{id}/reorder/
-        Body: {"item_orders": [{"id": "uuid", "order": 1}, ...]}
-        """
-        playlist = self.get_object()
-        
-        # Check ownership or admin permissions
-        if not (
-            playlist.owner == request.user or 
-            request.user.is_admin or 
-            request.user.is_school_admin
-        ):
-            return Response(
-                {'error': 'Permission denied'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        item_orders = request.data.get('item_orders', [])
-        if not item_orders:
-            return Response(
-                {'error': 'item_orders is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            with transaction.atomic():
-                # Update orders
-                for item_order in item_orders:
-                    item_id = item_order.get('id')
-                    new_order = item_order.get('order')
-                    
-                    if not item_id or new_order is None:
-                        continue
-                    
-                    PlaylistItem.objects.filter(
-                        id=item_id,
-                        playlist=playlist
-                    ).update(order=new_order)
-                
-                # Log reorder action
-                AuditLog.objects.create(
-                    action='PLAYLIST_REORDERED',
-                    user=request.user,
-                    metadata={
-                        'playlist_id': str(playlist.id),
-                        'playlist_name': playlist.name,
-                        'item_count': len(item_orders)
-                    },
-                    ip_address=self.get_client_ip(request)
-                )
-            
-            return Response({'message': 'Playlist reordered successfully'})
-            
-        except Exception as e:
-            logger.error(f"Failed to reorder playlist {pk}: {e}")
-            return Response(
-                {'error': 'Failed to reorder playlist'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-    
-    @action(detail=True, methods=['post'])
-    def share(self, request, pk=None):
-        """
-        Create a share link for the playlist
-        POST /api/playlists/{id}/share/
-        """
-        playlist = self.get_object()
-        
-        # Check ownership or admin permissions
-        if not (
-            playlist.owner == request.user or 
-            request.user.is_admin or 
-            request.user.is_school_admin
-        ):
-            return Response(
-                {'error': 'Permission denied'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        # Optional expiration (in days)
-        expires_in_days = request.data.get('expires_in_days')
-        expires_at = None
-        
-        if expires_in_days:
-            try:
-                expires_in_days = int(expires_in_days)
-                if expires_in_days > 0:
-                    expires_at = timezone.now() + timedelta(days=expires_in_days)
-            except (ValueError, TypeError):
-                pass
-        
-        # Create share
-        playlist_share = PlaylistShare.objects.create(
-            playlist=playlist,
-            created_by=request.user,
-            expires_at=expires_at
-        )
-        
-        # Log sharing action
-        AuditLog.objects.create(
-            action='PLAYLIST_SHARED',
-            user=request.user,
-            metadata={
-                'playlist_id': str(playlist.id),
-                'playlist_name': playlist.name,
-                'share_token': str(playlist_share.share_token),
-                'expires_at': expires_at.isoformat() if expires_at else None
-            },
-            ip_address=self.get_client_ip(request)
-        )
-        
-        serializer = PlaylistShareSerializer(playlist_share)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
-    def get_client_ip(self, request):
-        """Get client IP address from request"""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
+    context = {
+        'my_playlists': my_playlists,
+        'shared_playlists': shared_playlists,
+    }
+    return render(request, 'playlists.html', context)
 
 
-@api_view(['GET'])
-@permission_classes([permissions.AllowAny])  # Public access via token
-def shared_playlist_view(request, share_token):
+@login_required
+def playlist_detail(request, playlist_id):
     """
-    View a shared playlist (read-only)
-    GET /api/shared/{token}/
+    View details of a specific playlist
     """
-    try:
-        # Get share by token
-        playlist_share = get_object_or_404(
-            PlaylistShare.objects.select_related(
-                'playlist__owner', 'playlist__school'
-            ).prefetch_related(
-                'playlist__playlistitem_set__video_asset'
-            ),
-            share_token=share_token
-        )
-        
-        # Check if share is valid
-        if not playlist_share.is_valid:
-            return Response(
-                {'error': 'Share link is expired or inactive'}, 
-                status=status.HTTP_410_GONE
-            )
-        
-        # Update access tracking
-        playlist_share.view_count += 1
-        playlist_share.last_accessed = timezone.now()
-        playlist_share.save(update_fields=['view_count', 'last_accessed'])
-        
-        # Return playlist data
-        playlist_data = PlaylistSerializer(playlist_share.playlist).data
-        playlist_data['is_shared'] = True
-        playlist_data['shared_by'] = playlist_share.created_by.get_full_name()
-        playlist_data['share_created_at'] = playlist_share.created_at
-        
-        return Response(playlist_data)
-        
-    except Exception as e:
-        logger.error(f"Failed to load shared playlist {share_token}: {e}")
-        return Response(
-            {'error': 'Failed to load shared playlist'}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-
-@api_view(['POST'])
-@permission_classes([IsTeacher])
-def duplicate_shared_playlist(request, share_token):
-    """
-    Duplicate a shared playlist to user's account
-    POST /api/shared/{token}/duplicate/
-    """
-    try:
-        # Get share by token
-        playlist_share = get_object_or_404(
-            PlaylistShare.objects.select_related(
-                'playlist__owner', 'playlist__school'
-            ).prefetch_related(
-                'playlist__playlistitem_set__video_asset'
-            ),
-            share_token=share_token
-        )
-        
-        # Check if share is valid
-        if not playlist_share.is_valid:
-            return Response(
-                {'error': 'Share link is expired or inactive'}, 
-                status=status.HTTP_410_GONE
-            )
-        
-        original_playlist = playlist_share.playlist
-        
-        # Check if user already has a duplicate
-        existing_duplicate = Playlist.objects.filter(
-            owner=request.user,
-            name=f"{original_playlist.name} (Copy)"
+    playlist = get_object_or_404(Playlist, id=playlist_id)
+    
+    # Check access permissions
+    can_edit = playlist.owner == request.user
+    can_view = (
+        can_edit or 
+        playlist.is_public or 
+        (playlist.school == request.user.school)
+    )
+    
+    if not can_view:
+        return JsonResponse({
+            'success': False,
+            'message': 'You do not have permission to view this playlist'
+        }, status=403)
+    
+    # Get playlist items with related data
+    items = playlist.playlistitem_set.select_related(
+        'video_asset'
+    ).order_by('order')
+    
+    # Get activities linked to videos in playlist
+    playlist_data = []
+    for item in items:
+        # Find activity associated with this video
+        activity = Activity.objects.filter(
+            video_asset=item.video_asset,
+            is_published=True
         ).first()
         
-        if existing_duplicate:
-            return Response(
-                {'error': 'You already have a copy of this playlist'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        with transaction.atomic():
-            # Create new playlist
-            new_playlist = Playlist.objects.create(
-                name=f"{original_playlist.name} (Copy)",
-                description=f"Duplicated from {original_playlist.owner.get_full_name()}'s playlist.\n\n{original_playlist.description}",
+        playlist_data.append({
+            'item': item,
+            'activity': activity,
+        })
+    
+    # Get share links
+    share_links = playlist.shares.filter(is_active=True).order_by('-created_at')
+    
+    context = {
+        'playlist': playlist,
+        'playlist_data': playlist_data,
+        'can_edit': can_edit,
+        'share_links': share_links,
+    }
+    return render(request, 'playlist_detail.html', context)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def create_playlist(request):
+    """
+    Create a new playlist
+    """
+    if request.method == 'POST':
+        try:
+            name = request.POST.get('name', '').strip()
+            description = request.POST.get('description', '').strip()
+            is_public = request.POST.get('is_public') == 'on'
+            
+            if not name:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Playlist name is required'
+                }, status=400)
+            
+            # Create playlist
+            playlist = Playlist.objects.create(
+                name=name,
+                description=description,
                 owner=request.user,
                 school=request.user.school,
-                is_public=False  # Duplicates are private by default
+                is_public=is_public
             )
             
-            # Copy playlist items (only videos accessible to user's school)
-            items_to_create = []
-            accessible_videos = VideoAsset.objects.filter(
-                school=request.user.school,
-                status='PUBLISHED'
-            ).values_list('id', flat=True)
+            logger.info(f"Playlist created: {playlist.id} by {request.user.username}")
             
-            for item in original_playlist.playlistitem_set.all():
-                if item.video_asset.id in accessible_videos:
-                    items_to_create.append(PlaylistItem(
-                        playlist=new_playlist,
-                        video_asset=item.video_asset,
-                        order=item.order,
-                        notes=item.notes
-                    ))
+            # If AJAX request, return JSON
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Playlist "{name}" created successfully',
+                    'playlist_id': str(playlist.id),
+                    'redirect_url': f'/playlists/{playlist.id}/'
+                })
             
-            PlaylistItem.objects.bulk_create(items_to_create)
+            return redirect('v4:playlist-detail', playlist_id=playlist.id)
             
-            # Log duplication action
-            AuditLog.objects.create(
-                action='PLAYLIST_DUPLICATED',
-                user=request.user,
-                metadata={
-                    'original_playlist_id': str(original_playlist.id),
-                    'original_playlist_name': original_playlist.name,
-                    'original_owner': original_playlist.owner.get_full_name(),
-                    'new_playlist_id': str(new_playlist.id),
-                    'new_playlist_name': new_playlist.name,
-                    'items_copied': len(items_to_create),
-                    'share_token': str(share_token)
-                },
-                ip_address=get_client_ip(request)
-            )
-        
-        # Return new playlist
-        serializer = PlaylistSerializer(new_playlist)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
-    except Exception as e:
-        logger.error(f"Failed to duplicate shared playlist {share_token}: {e}")
-        return Response(
-            {'error': 'Failed to duplicate playlist'}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        except Exception as e:
+            logger.error(f"Failed to create playlist: {e}")
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Failed to create playlist: {str(e)}'
+                }, status=500)
+            return redirect('v4:my-playlists')
+    
+    # GET - show form
+    return render(request, 'playlist_create.html')
 
 
-@api_view(['POST'])
-@permission_classes([IsTeacher])
-def track_video_view(request):
+@login_required
+@require_POST
+def add_to_playlist(request):
     """
-    Track video view for analytics
-    POST /api/analytics/view/
+    Add an activity/video to a playlist
     """
     try:
-        video_id = request.data.get('video_id')
-        session_id = request.data.get('session_id', str(uuid.uuid4()))
-        duration_watched = request.data.get('duration_watched')
-        completion_percentage = request.data.get('completion_percentage')
-        referrer = request.data.get('referrer', '')
+        activity_id = request.POST.get('activity_id')
+        playlist_id = request.POST.get('playlist_id')
+        create_new = request.POST.get('create_new') == 'true'
         
-        if not video_id:
-            return Response(
-                {'error': 'video_id is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
+        # Get or create playlist
+        if create_new:
+            playlist_name = request.POST.get('new_playlist_name', '').strip()
+            if not playlist_name:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Playlist name is required'
+                }, status=400)
+            
+            playlist = Playlist.objects.create(
+                name=playlist_name,
+                owner=request.user,
+                school=request.user.school,
+                is_public=False
             )
-        
-        # Get video and verify access
-        video = VideoAsset.objects.get(
-            id=video_id,
-            school=request.user.school
-        )
-        
-        # Check for duplicate view (same session)
-        existing_view = AssetView.objects.filter(
-            asset=video,
-            user=request.user,
-            session_id=session_id
-        ).first()
-        
-        if existing_view:
-            # Update existing view with new data
-            if duration_watched is not None:
-                existing_view.duration_watched = max(
-                    existing_view.duration_watched or 0, 
-                    duration_watched
-                )
-            if completion_percentage is not None:
-                existing_view.completion_percentage = max(
-                    existing_view.completion_percentage or 0.0, 
-                    completion_percentage
-                )
-            existing_view.save()
-            view_record = existing_view
+            logger.info(f"New playlist created: {playlist.id}")
         else:
-            # Create new view record
-            view_record = AssetView.objects.create(
-                asset=video,
-                user=request.user,
-                session_id=session_id,
-                duration_watched=duration_watched,
-                completion_percentage=completion_percentage,
-                referrer=referrer
-            )
+            playlist = get_object_or_404(Playlist, id=playlist_id, owner=request.user)
         
-        # Log view action
-        AuditLog.objects.create(
-            action='VIDEO_VIEWED',
-            user=request.user,
-            metadata={
-                'video_id': str(video.id),
-                'video_title': video.title,
-                'duration_watched': duration_watched,
-                'completion_percentage': completion_percentage,
-                'session_id': session_id
-            },
-            ip_address=get_client_ip(request)
+        # Get activity and its video
+        activity = get_object_or_404(Activity, id=activity_id, is_published=True)
+        
+        if not activity.video_asset:
+            return JsonResponse({
+                'success': False,
+                'message': 'This activity does not have a video'
+            }, status=400)
+        
+        # Check if video already in playlist
+        if PlaylistItem.objects.filter(
+            playlist=playlist,
+            video_asset=activity.video_asset
+        ).exists():
+            return JsonResponse({
+                'success': False,
+                'message': 'This video is already in the playlist'
+            }, status=400)
+        
+        # Add to playlist (order will be auto-assigned)
+        item = PlaylistItem.objects.create(
+            playlist=playlist,
+            video_asset=activity.video_asset,
+            notes=f"From activity: {activity.title}"
         )
         
-        return Response({
-            'message': 'View tracked successfully',
-            'view_id': str(view_record.id)
+        logger.info(f"Added video {activity.video_asset.id} to playlist {playlist.id}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Added to playlist "{playlist.name}"',
+            'playlist_id': str(playlist.id)
         })
         
-    except VideoAsset.DoesNotExist:
-        return Response(
-            {'error': 'Video not found or not accessible'}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
     except Exception as e:
-        logger.error(f"Failed to track video view: {e}")
-        return Response(
-            {'error': 'Failed to track view'}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        logger.error(f"Failed to add to playlist: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Failed to add to playlist: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_POST
+def remove_from_playlist(request, item_id):
+    """
+    Remove an item from a playlist
+    """
+    try:
+        item = get_object_or_404(PlaylistItem, id=item_id)
+        
+        # Check ownership
+        if item.playlist.owner != request.user:
+            return JsonResponse({
+                'success': False,
+                'message': 'You do not have permission to modify this playlist'
+            }, status=403)
+        
+        playlist_id = item.playlist.id
+        item.delete()
+        
+        logger.info(f"Removed item {item_id} from playlist {playlist_id}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Item removed from playlist'
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to remove from playlist: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Failed to remove from playlist: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_POST
+def delete_playlist(request, playlist_id):
+    """
+    Delete a playlist
+    """
+    try:
+        playlist = get_object_or_404(Playlist, id=playlist_id, owner=request.user)
+        
+        playlist_name = playlist.name
+        playlist.delete()
+        
+        logger.info(f"Playlist deleted: {playlist_id} by {request.user.username}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Playlist "{playlist_name}" deleted successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to delete playlist: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Failed to delete playlist: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_POST
+def duplicate_playlist(request, playlist_id):
+    """
+    Duplicate a playlist
+    """
+    try:
+        original = get_object_or_404(Playlist, id=playlist_id)
+        
+        # Check if user can access the original
+        can_access = (
+            original.owner == request.user or
+            original.is_public or
+            (original.school == request.user.school)
         )
+        
+        if not can_access:
+            return JsonResponse({
+                'success': False,
+                'message': 'You do not have permission to duplicate this playlist'
+            }, status=403)
+        
+        # Create duplicate
+        duplicate = Playlist.objects.create(
+            name=f"{original.name} (Copy)",
+            description=original.description,
+            owner=request.user,
+            school=request.user.school,
+            is_public=False
+        )
+        
+        # Copy all items
+        items = original.playlistitem_set.all().order_by('order')
+        for item in items:
+            PlaylistItem.objects.create(
+                playlist=duplicate,
+                video_asset=item.video_asset,
+                order=item.order,
+                notes=item.notes
+            )
+        
+        logger.info(f"Playlist duplicated: {playlist_id} -> {duplicate.id} by {request.user.username}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Playlist "{original.name}" duplicated successfully',
+            'playlist_id': str(duplicate.id),
+            'redirect_url': f'/playlists/{duplicate.id}/'
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to duplicate playlist: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Failed to duplicate playlist: {str(e)}'
+        }, status=500)
 
 
-def get_client_ip(request):
-    """Get client IP address from request"""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
+@login_required
+@require_POST
+def create_share_link(request, playlist_id):
+    """
+    Create a shareable link for a playlist
+    """
+    try:
+        playlist = get_object_or_404(Playlist, id=playlist_id, owner=request.user)
+        
+        # Get expiration days (optional)
+        days = request.POST.get('expiration_days', '')
+        expires_at = None
+        if days and days.isdigit():
+            expires_at = timezone.now() + timezone.timedelta(days=int(days))
+        
+        # Create share link
+        share = PlaylistShare.objects.create(
+            playlist=playlist,
+            created_by=request.user,
+            expires_at=expires_at,
+            is_active=True
+        )
+        
+        # Generate full URL
+        share_url = request.build_absolute_uri(f'/playlists/shared/{share.share_token}/')
+        
+        logger.info(f"Share link created for playlist {playlist_id}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Share link created successfully',
+            'share_url': share_url,
+            'share_token': str(share.share_token)
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to create share link: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Failed to create share link: {str(e)}'
+        }, status=500)
 
 
+@login_required
+def view_shared_playlist(request, share_token):
+    """
+    View a playlist via share link
+    """
+    try:
+        share = get_object_or_404(PlaylistShare, share_token=share_token, is_active=True)
+        
+        # Check if expired
+        if share.is_expired:
+            return render(request, 'playlist_expired.html', {
+                'message': 'This share link has expired'
+            })
+        
+        # Update access tracking
+        share.view_count += 1
+        share.last_accessed = timezone.now()
+        share.save(update_fields=['view_count', 'last_accessed'])
+        
+        # Show playlist
+        return playlist_detail(request, share.playlist.id)
+        
+    except Exception as e:
+        logger.error(f"Failed to view shared playlist: {e}")
+        return render(request, 'playlist_expired.html', {
+            'message': 'Invalid or expired share link'
+        })
 
 
+@login_required
+@require_POST
+def update_playlist_settings(request, playlist_id):
+    """
+    Update playlist settings (name, description, visibility)
+    """
+    try:
+        playlist = get_object_or_404(Playlist, id=playlist_id, owner=request.user)
+        
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '').strip()
+        is_public = request.POST.get('is_public') == 'on'
+        
+        if name:
+            playlist.name = name
+        if description is not None:
+            playlist.description = description
+        playlist.is_public = is_public
+        playlist.save()
+        
+        logger.info(f"Playlist updated: {playlist_id}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Playlist updated successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to update playlist: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Failed to update playlist: {str(e)}'
+        }, status=500)
 
 
+@login_required
+def get_user_playlists_json(request):
+    """
+    Get user's playlists as JSON (for AJAX dropdown)
+    """
+    playlists = Playlist.objects.filter(
+        owner=request.user
+    ).values('id', 'name', 'description').order_by('-updated_at')
+    
+    return JsonResponse({
+        'playlists': list(playlists)
+    })
