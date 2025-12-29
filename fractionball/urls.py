@@ -59,7 +59,10 @@ urlpatterns = [
     # Dashboard UI (Teacher)
     path('dashboard/', dashboard_view, name='dashboard'),
     
-    # Admin
+    # CMS (Beautiful Admin Interface)
+    path('cms/', include('content.cms_urls', namespace='cms')),
+    
+    # Django Admin
     path('admin/', admin.site.urls),
     
     # API
