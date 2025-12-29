@@ -21,12 +21,16 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-# Allowed hosts for Cloud Run
+# Allowed hosts for Cloud Run and Firebase Hosting
 ALLOWED_HOSTS = [
     '.run.app',  # Cloud Run domains
     '.fractionball.com',  # Your custom domain
     'fractionball.com',
     'www.fractionball.com',
+    'fractionball-lms.web.app',  # Firebase Hosting
+    'fractionball-lms.firebaseapp.com',  # Firebase Hosting
+    '.web.app',  # Firebase Hosting wildcard
+    '.firebaseapp.com',  # Firebase Hosting wildcard
     'localhost',  # For health checks
 ]
 
@@ -60,9 +64,14 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_TRUSTED_ORIGINS = [
     'https://fractionball-lms.web.app',
     'https://fractionball-lms.firebaseapp.com',
+    'https://fractionball-admin.web.app',  # FireCMS admin
+    'https://fractionball-admin.firebaseapp.com',  # FireCMS admin
     'https://fractionball-backend-110595744029.us-central1.run.app',
     'https://*.fractionball.com',
     'https://*.run.app',
+    'https://*.us-central1.run.app',
+    'https://*.web.app',
+    'https://*.firebaseapp.com',
 ]
 
 # Add Cloud Run URL to CSRF trusted origins
@@ -181,6 +190,16 @@ else:
 
 AUTH_USER_MODEL = 'accounts.User'
 
+# Authentication backends - needed for Django admin and session-based auth
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# Login URLs
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/admin/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -260,6 +279,8 @@ CORS_ALLOWED_ORIGINS = [
     'https://www.fractionball.com',
     'https://fractionball-lms.web.app',
     'https://fractionball-lms.firebaseapp.com',
+    'https://fractionball-admin.web.app',
+    'https://fractionball-admin.firebaseapp.com',
 ]
 
 # Add Cloud Run URL to CORS

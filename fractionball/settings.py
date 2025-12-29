@@ -30,15 +30,18 @@ SECURE_HSTS_PRELOAD = config('SECURE_HSTS_PRELOAD', default=True, cast=bool)
 SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Session Security
-SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
+# Detect if running in production (Cloud Run sets this)
+IS_PRODUCTION = config('GAE_APPLICATION', default='') != '' or config('K_SERVICE', default='') != '' or 'fractionball' in config('ALLOWED_HOSTS', default='')
+
+# Session Security - secure cookies in production
+SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=IS_PRODUCTION, cast=bool)
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_AGE = config('SESSION_COOKIE_AGE', default=28800, cast=int)  # 8 hours
 
-# CSRF Security
-CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
-CSRF_COOKIE_HTTPONLY = True
+# CSRF Security - secure cookies in production
+CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=IS_PRODUCTION, cast=bool)
+CSRF_COOKIE_HTTPONLY = False  # Must be False so JavaScript can read it for AJAX requests
 CSRF_COOKIE_SAMESITE = 'Lax'
 
 # Parse CSRF_TRUSTED_ORIGINS - supports comma, space, or semicolon as separators
@@ -51,16 +54,15 @@ CSRF_TRUSTED_ORIGINS = [
     if origin.strip()
 ]
 
-# Always include Firebase domains in production
-if not DEBUG:
-    _firebase_origins = [
-        'https://fractionball-lms.web.app',
-        'https://fractionball-lms.firebaseapp.com',
-        'https://fractionball-backend-110595744029.us-central1.run.app',
-    ]
-    for origin in _firebase_origins:
-        if origin not in CSRF_TRUSTED_ORIGINS:
-            CSRF_TRUSTED_ORIGINS.append(origin)
+# Always include Firebase domains (needed for production deployment)
+_firebase_origins = [
+    'https://fractionball-lms.web.app',
+    'https://fractionball-lms.firebaseapp.com',
+    'https://fractionball-backend-110595744029.us-central1.run.app',
+]
+for origin in _firebase_origins:
+    if origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
 
 # Content Security Policy
 CSP_DEFAULT_SRC = ("'self'",)
@@ -165,6 +167,16 @@ else:
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'
 
+# Authentication backends - needed for Django admin and session auth
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# Login URLs
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/admin/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -237,6 +249,11 @@ SPECTACULAR_SETTINGS = {
 # CORS settings
 CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,http://127.0.0.1:8000').split(',')
 CORS_ALLOW_CREDENTIALS = True
+
+# Always include Firebase domains in CORS
+for origin in _firebase_origins:
+    if origin not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(origin)
 
 # Firebase Configuration
 FIREBASE_CONFIG = {
