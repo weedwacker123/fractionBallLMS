@@ -61,6 +61,12 @@ SESSION_COOKIE_AGE = 28800  # 8 hours
 CSRF_COOKIE_SECURE = True
 CSRF_COOKIE_HTTPONLY = False  # Must be False to allow JavaScript access for forms
 CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_DOMAIN = None  # Let the cookie be set for the current domain
+CSRF_USE_SESSIONS = True  # Store CSRF token in session for better proxy compatibility
+
+# Session cookie domain
+SESSION_COOKIE_DOMAIN = None  # Let the cookie be set for the current domain
+
 CSRF_TRUSTED_ORIGINS = [
     'https://fractionball-lms.web.app',
     'https://fractionball-lms.firebaseapp.com',

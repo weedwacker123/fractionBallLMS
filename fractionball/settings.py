@@ -43,6 +43,7 @@ SESSION_COOKIE_AGE = config('SESSION_COOKIE_AGE', default=28800, cast=int)  # 8 
 CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=IS_PRODUCTION, cast=bool)
 CSRF_COOKIE_HTTPONLY = False  # Must be False so JavaScript can read it for AJAX requests
 CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_USE_SESSIONS = config('CSRF_USE_SESSIONS', default=IS_PRODUCTION, cast=bool)  # Use session for CSRF in production
 
 # Parse CSRF_TRUSTED_ORIGINS - supports comma, space, or semicolon as separators
 _csrf_origins_raw = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000')
