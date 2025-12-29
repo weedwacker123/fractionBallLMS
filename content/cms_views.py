@@ -2,14 +2,17 @@
 CMS Views for Fraction Ball Admin
 A beautiful, user-friendly content management interface
 """
+import logging
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import ensure_csrf_cookie
 from content.models import Activity, VideoAsset, Resource, Playlist
 from django.contrib.auth import get_user_model
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
@@ -20,32 +23,46 @@ def is_staff_or_admin(user):
     return user.is_staff or user.is_superuser or getattr(user, 'role', '') in ['ADMIN', 'CONTENT_MANAGER']
 
 
+@ensure_csrf_cookie
 def cms_login(request):
     """CMS Login view with beautiful UI"""
+    logger.info(f"CMS Login - Method: {request.method}, User authenticated: {request.user.is_authenticated}")
+    
     if request.user.is_authenticated:
         if is_staff_or_admin(request.user):
+            logger.info(f"User {request.user.username} already authenticated, redirecting to dashboard")
             return redirect('cms:dashboard')
         else:
             messages.error(request, 'You do not have permission to access the CMS.')
             return redirect('/')
     
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '')
+        
+        logger.info(f"CMS Login attempt for username: {username}")
+        
+        if not username or not password:
+            messages.error(request, 'Please enter both username and password.')
+            return render(request, 'cms/login.html')
         
         user = authenticate(request, username=username, password=password)
         
         if user is not None:
+            logger.info(f"User {username} authenticated successfully, is_staff: {user.is_staff}, is_superuser: {user.is_superuser}")
             if is_staff_or_admin(user):
                 login(request, user)
+                logger.info(f"User {username} logged in successfully")
                 messages.success(request, f'Welcome back, {user.get_full_name() or user.username}!')
                 
                 # Get next URL or default to dashboard
                 next_url = request.GET.get('next', '/cms/')
                 return redirect(next_url)
             else:
+                logger.warning(f"User {username} does not have CMS access permissions")
                 messages.error(request, 'You do not have permission to access the CMS.')
         else:
+            logger.warning(f"Failed login attempt for username: {username}")
             messages.error(request, 'Invalid username or password.')
     
     return render(request, 'cms/login.html')

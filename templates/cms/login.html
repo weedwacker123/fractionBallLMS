@@ -146,8 +146,11 @@
         {% endif %}
         
         <!-- Login Form -->
-        <form method="post" action="{% url 'cms:login' %}" class="space-y-5">
+        <form method="post" action="{% url 'cms:login' %}{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}" class="space-y-5" id="loginForm">
             {% csrf_token %}
+            
+            <!-- Debug: Show if CSRF token exists -->
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" id="csrf-backup">
             
             <div>
                 <label for="username" class="block text-sm font-semibold text-gray-700 mb-2">
@@ -235,6 +238,24 @@
             © 2025 Fraction Ball. All rights reserved.
         </p>
     </div>
+    
+    <script>
+        // Debug form submission
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            console.log('Form submitting...');
+            console.log('CSRF Token:', document.querySelector('[name=csrfmiddlewaretoken]')?.value);
+            
+            // Show loading state on button
+            const btn = this.querySelector('button[type="submit"]');
+            btn.innerHTML = '<span class="inline-block animate-spin mr-2">⏳</span> Signing in...';
+            btn.disabled = true;
+        });
+        
+        // Check if cookies are enabled
+        if (!navigator.cookieEnabled) {
+            alert('Cookies are disabled. Please enable cookies to sign in.');
+        }
+    </script>
 </body>
 </html>
 
