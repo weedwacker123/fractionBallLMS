@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'ADMIN'];
+    }
+    
+    function isContentManager() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'ADMIN', 'content_manager', 'CONTENT_MANAGER'];
+    }
+    
+    function isTeacher() {
+      return isAuthenticated();
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isOwner(userId);
+    }
+    
+    // Activities collection
+    match /activities/{activityId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isContentManager();
+      allow delete: if isAdmin();
+    }
+    
+    // Videos collection
+    match /videos/{videoId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isContentManager();
+      allow delete: if isAdmin();
+    }
+    
+    // Resources collection
+    match /resources/{resourceId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isContentManager();
+      allow delete: if isAdmin();
+    }
+    
+    // Taxonomies collection (admin only)
+    match /taxonomies/{taxonomyId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Pages collection
+    match /pages/{pageId} {
+      allow read: if true; // Public pages
+      allow create, update: if isContentManager();
+      allow delete: if isAdmin();
+    }
+    
+    // Menu Items collection (admin only)
+    match /menuItems/{menuItemId} {
+      allow read: if true; // Public navigation
+      allow write: if isAdmin();
+    }
+    
+    // FAQs collection
+    match /faqs/{faqId} {
+      allow read: if true; // Public FAQs
+      allow create, update: if isContentManager();
+      allow delete: if isAdmin();
+    }
+    
+    // Community Posts collection
+    match /communityPosts/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isTeacher();
+      allow update: if isContentManager() || 
+        (isTeacher() && resource.data.authorId == request.auth.uid);
+      allow delete: if isAdmin();
+      
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isTeacher();
+        allow update: if isContentManager() || 
+          (isTeacher() && resource.data.authorId == request.auth.uid);
+        allow delete: if isAdmin() || 
+          (isTeacher() && resource.data.authorId == request.auth.uid);
+      }
+    }
+    
+    // Roles collection (for custom roles - future)
+    match /roles/{roleId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Audit logs (admin read only)
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+  }
+}
+

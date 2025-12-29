@@ -1,0 +1,63 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isContentManager() {
+      return isAuthenticated();
+      // In production, check custom claims or Firestore for role
+    }
+    
+    function isValidFileSize(maxSize) {
+      return request.resource.size < maxSize;
+    }
+    
+    function isValidContentType(types) {
+      return request.resource.contentType.matches(types);
+    }
+    
+    // Videos folder - MP4 files up to 500MB
+    match /videos/{videoId} {
+      allow read: if isAuthenticated();
+      allow write: if isContentManager() 
+        && isValidFileSize(500 * 1024 * 1024)
+        && request.resource.contentType.matches('video/.*');
+    }
+    
+    // Resources folder - Documents up to 50MB
+    match /resources/{resourceId} {
+      allow read: if isAuthenticated();
+      allow write: if isContentManager() 
+        && isValidFileSize(50 * 1024 * 1024);
+    }
+    
+    // Lesson plans folder - PDFs up to 10MB
+    match /lesson-plans/{planId} {
+      allow read: if isAuthenticated();
+      allow write: if isContentManager() 
+        && isValidFileSize(10 * 1024 * 1024)
+        && request.resource.contentType == 'application/pdf';
+    }
+    
+    // Thumbnails folder - Images up to 2MB
+    match /thumbnails/{path=**} {
+      allow read: if true; // Public thumbnails
+      allow write: if isContentManager() 
+        && isValidFileSize(2 * 1024 * 1024)
+        && request.resource.contentType.matches('image/.*');
+    }
+    
+    // User avatars - Images up to 1MB
+    match /avatars/{userId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && request.auth.uid == userId
+        && isValidFileSize(1 * 1024 * 1024)
+        && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
+
