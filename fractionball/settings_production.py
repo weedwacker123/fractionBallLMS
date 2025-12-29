@@ -56,6 +56,7 @@ SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_AGE = 28800  # 8 hours
+SESSION_COOKIE_NAME = '__session'  # Firebase Hosting only forwards cookies named __session
 
 # CSRF Security
 CSRF_COOKIE_SECURE = True

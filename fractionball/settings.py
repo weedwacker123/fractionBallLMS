@@ -38,6 +38,8 @@ SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=IS_PRODUCTION, c
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_AGE = config('SESSION_COOKIE_AGE', default=28800, cast=int)  # 8 hours
+# Firebase Hosting only forwards cookies named __session
+SESSION_COOKIE_NAME = '__session' if IS_PRODUCTION else 'sessionid'
 
 # CSRF Security - secure cookies in production
 CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=IS_PRODUCTION, cast=bool)
