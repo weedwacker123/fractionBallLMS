@@ -44,11 +44,45 @@ const resourceTypeValues = {
   docx: "Word Doc",
 };
 
+// Location values for activities
+const locationValues = {
+  classroom: "Classroom",
+  court: "Court",
+  both: "Both",
+};
+
+// Icon type values
+const iconTypeValues = {
+  cone: "Cone",
+  "bottle-cap": "Bottle Cap",
+  person: "Person",
+  ball: "Ball",
+  basketball: "Basketball",
+  pizza: "Pizza",
+  hands: "Hands",
+  running: "Running",
+  "number-line": "Number Line",
+  soccer: "Soccer",
+  obstacle: "Obstacle",
+  multiply: "Multiply",
+  divide: "Divide",
+  ratio: "Ratio",
+  percent: "Percent",
+  algebra: "Algebra",
+  trophy: "Trophy",
+  compare: "Compare",
+};
+
 // Activity type interface
 export interface Activity {
   title: string;
+  slug: string;
   description?: string;
   gradeLevel: number[];
+  activityNumber: number;
+  order: number;
+  location: string;
+  iconType: string;
   tags: string[];
   taxonomy: {
     topic?: string;
@@ -56,6 +90,11 @@ export interface Activity {
     courtType?: string;
     standard?: string;
   };
+  prerequisites?: string[];
+  learningObjectives?: string;
+  materials?: string[];
+  gameRules?: string[];
+  keyTerms?: { [key: string]: string };
   prerequisiteActivities?: EntityReference[];
   videos: {
     videoId: EntityReference;
@@ -102,12 +141,48 @@ export const activitiesCollection = buildCollection<Activity>({
       description: "The title of this activity",
     }),
 
+    slug: buildProperty({
+      name: "URL Slug",
+      dataType: "string",
+      validation: { required: true },
+      description: "URL-friendly identifier (e.g., 'half-and-half-hoops')",
+    }),
+
     description: buildProperty({
       name: "Description",
       dataType: "string",
       multiline: true,
       markdown: true,
       description: "Detailed description of the activity (supports Markdown)",
+    }),
+
+    activityNumber: buildProperty({
+      name: "Activity Number",
+      dataType: "number",
+      validation: { required: true, min: 1 },
+      description: "Sequence number within the grade (1, 2, 3, etc.)",
+    }),
+
+    order: buildProperty({
+      name: "Display Order",
+      dataType: "number",
+      validation: { min: 0 },
+      description: "Order for display in lists (lower numbers appear first)",
+    }),
+
+    location: buildProperty({
+      name: "Location",
+      dataType: "string",
+      enumValues: locationValues,
+      validation: { required: true },
+      description: "Where the activity takes place",
+    }),
+
+    iconType: buildProperty({
+      name: "Icon Type",
+      dataType: "string",
+      enumValues: iconTypeValues,
+      description: "Icon to display for this activity",
     }),
 
     gradeLevel: buildProperty({

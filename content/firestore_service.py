@@ -13,12 +13,16 @@ logger = logging.getLogger(__name__)
 
 
 def get_firestore_client():
-    """Get Firestore client, initializing if needed"""
-    if not firebase_admin._apps:
-        from firebase_init import initialize_firebase
-        initialize_firebase()
-    
-    return firestore.client()
+    """Get Firestore client with explicit database name"""
+    from google.cloud import firestore as gc_firestore
+    from django.conf import settings
+
+    # Use google-cloud-firestore directly with explicit database='default'
+    # This fixes an issue where the SDK's (default) placeholder doesn't work
+    return gc_firestore.Client(
+        project='fractionball-lms',
+        database='default'
+    )
 
 
 def get_all_documents(collection_name: str) -> List[Dict[str, Any]]:
@@ -79,25 +83,309 @@ def get_document(collection_name: str, doc_id: str) -> Optional[Dict[str, Any]]:
 def get_published_activities() -> List[Dict[str, Any]]:
     """
     Get all published activities from Firestore
-    
+
     Returns:
         List of published activities
     """
     try:
         db = get_firestore_client()
         docs = db.collection('activities').where('status', '==', 'published').stream()
-        
+
         results = []
         for doc in docs:
             data = doc.to_dict()
             data['id'] = doc.id
             results.append(data)
-        
+
         logger.info(f"Retrieved {len(results)} published activities from Firestore")
         return results
-        
+
     except Exception as e:
         logger.error(f"Error fetching published activities: {e}")
+        return []
+
+
+def query_activities(
+    grade: Optional[str] = None,
+    topics: Optional[List[str]] = None,
+    location: Optional[str] = None,
+    search: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    Query activities with filters
+
+    Args:
+        grade: Grade level (e.g., 'K', '1', '2', ... '8')
+        topics: List of topic tags to filter by
+        location: 'classroom', 'court', or 'both'
+        search: Search query for title/description
+
+    Returns:
+        List of matching activities
+    """
+    try:
+        db = get_firestore_client()
+        query = db.collection('activities').where('status', '==', 'published')
+
+        # Filter by grade level
+        if grade:
+            # Convert grade to number for Firestore (K=0, 1=1, etc.)
+            grade_num = 0 if grade == 'K' else int(grade)
+            query = query.where('gradeLevel', 'array_contains', grade_num)
+
+        # Execute query
+        docs = query.stream()
+        results = []
+
+        for doc in docs:
+            data = doc.to_dict()
+            data['id'] = doc.id
+
+            # Apply location filter in Python (Firestore limitation on multiple array_contains)
+            if location:
+                activity_location = data.get('taxonomy', {}).get('courtType', '')
+                if location == 'court' and 'court' not in activity_location.lower():
+                    continue
+                if location == 'classroom' and 'classroom' not in activity_location.lower():
+                    continue
+
+            # Apply topic filter in Python
+            if topics:
+                activity_tags = data.get('tags', [])
+                activity_topic = data.get('taxonomy', {}).get('topic', '')
+                all_topics = activity_tags + ([activity_topic] if activity_topic else [])
+                if not any(t in all_topics for t in topics):
+                    continue
+
+            # Apply search filter in Python
+            if search:
+                search_lower = search.lower()
+                title = data.get('title', '').lower()
+                description = data.get('description', '').lower()
+                if search_lower not in title and search_lower not in description:
+                    continue
+
+            results.append(data)
+
+        # Sort by order and activityNumber
+        results.sort(key=lambda x: (x.get('order', 0), x.get('activityNumber', 0)))
+
+        logger.info(f"Query returned {len(results)} activities")
+        return results
+
+    except Exception as e:
+        logger.error(f"Error querying activities: {e}")
+        return []
+
+
+def get_activity_by_slug(slug: str) -> Optional[Dict[str, Any]]:
+    """
+    Get a single activity by its slug
+
+    Args:
+        slug: URL-friendly activity identifier
+
+    Returns:
+        Activity data or None if not found
+    """
+    try:
+        db = get_firestore_client()
+        docs = db.collection('activities').where('slug', '==', slug).where('status', '==', 'published').limit(1).stream()
+
+        for doc in docs:
+            data = doc.to_dict()
+            data['id'] = doc.id
+            return data
+
+        return None
+
+    except Exception as e:
+        logger.error(f"Error fetching activity by slug '{slug}': {e}")
+        return None
+
+
+def get_videos_by_ids(video_ids: List[str]) -> List[Dict[str, Any]]:
+    """
+    Get multiple videos by their document IDs
+
+    Args:
+        video_ids: List of Firestore document IDs
+
+    Returns:
+        List of video data
+    """
+    if not video_ids:
+        return []
+
+    try:
+        db = get_firestore_client()
+        results = []
+
+        for video_id in video_ids:
+            doc = db.collection('videos').document(video_id).get()
+            if doc.exists:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                results.append(data)
+
+        return results
+
+    except Exception as e:
+        logger.error(f"Error fetching videos by IDs: {e}")
+        return []
+
+
+def get_resources_by_ids(resource_ids: List[str]) -> List[Dict[str, Any]]:
+    """
+    Get multiple resources by their document IDs
+
+    Args:
+        resource_ids: List of Firestore document IDs
+
+    Returns:
+        List of resource data
+    """
+    if not resource_ids:
+        return []
+
+    try:
+        db = get_firestore_client()
+        results = []
+
+        for resource_id in resource_ids:
+            doc = db.collection('resources').document(resource_id).get()
+            if doc.exists:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                results.append(data)
+
+        return results
+
+    except Exception as e:
+        logger.error(f"Error fetching resources by IDs: {e}")
+        return []
+
+
+def get_community_posts(limit: int = 20) -> List[Dict[str, Any]]:
+    """
+    Get recent community posts
+
+    Args:
+        limit: Maximum number of posts to return
+
+    Returns:
+        List of community posts
+    """
+    try:
+        db = get_firestore_client()
+        docs = db.collection('communityPosts').where('status', '==', 'active').order_by('createdAt', direction=firestore.Query.DESCENDING).limit(limit).stream()
+
+        results = []
+        for doc in docs:
+            data = doc.to_dict()
+            data['id'] = doc.id
+            results.append(data)
+
+        return results
+
+    except Exception as e:
+        logger.error(f"Error fetching community posts: {e}")
+        return []
+
+
+def get_post_with_comments(post_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get a community post with its comments
+
+    Args:
+        post_id: Document ID of the post
+
+    Returns:
+        Post data with comments array, or None if not found
+    """
+    try:
+        db = get_firestore_client()
+
+        # Get the post
+        post_doc = db.collection('communityPosts').document(post_id).get()
+        if not post_doc.exists:
+            return None
+
+        post_data = post_doc.to_dict()
+        post_data['id'] = post_doc.id
+
+        # Get comments from subcollection
+        comments_docs = db.collection('communityPosts').document(post_id).collection('comments').order_by('createdAt').stream()
+
+        comments = []
+        for doc in comments_docs:
+            comment_data = doc.to_dict()
+            comment_data['id'] = doc.id
+            comments.append(comment_data)
+
+        post_data['comments'] = comments
+        return post_data
+
+    except Exception as e:
+        logger.error(f"Error fetching post with comments: {e}")
+        return None
+
+
+def get_faqs_by_category(category: Optional[str] = None) -> List[Dict[str, Any]]:
+    """
+    Get FAQs, optionally filtered by category
+
+    Args:
+        category: Optional category filter
+
+    Returns:
+        List of FAQ entries
+    """
+    try:
+        db = get_firestore_client()
+        query = db.collection('faqs').where('status', '==', 'published')
+
+        if category:
+            query = query.where('category', '==', category)
+
+        query = query.order_by('displayOrder')
+        docs = query.stream()
+
+        results = []
+        for doc in docs:
+            data = doc.to_dict()
+            data['id'] = doc.id
+            results.append(data)
+
+        return results
+
+    except Exception as e:
+        logger.error(f"Error fetching FAQs: {e}")
+        return []
+
+
+def get_all_topics() -> List[str]:
+    """
+    Get all unique topics from published activities
+
+    Returns:
+        Sorted list of unique topic strings
+    """
+    try:
+        activities = get_published_activities()
+        all_topics = set()
+
+        for activity in activities:
+            tags = activity.get('tags', [])
+            topic = activity.get('taxonomy', {}).get('topic')
+            all_topics.update(tags)
+            if topic:
+                all_topics.add(topic)
+
+        return sorted(list(all_topics))
+
+    except Exception as e:
+        logger.error(f"Error fetching topics: {e}")
         return []
 
 

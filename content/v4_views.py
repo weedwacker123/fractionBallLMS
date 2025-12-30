@@ -5,9 +5,12 @@ Educational activity-focused UI
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
 from django.db.models import Q
+from django.conf import settings
 from .models import VideoAsset, Resource, Activity, AssetView, AssetDownload
+from . import firestore_service
+from .firestore_adapters import FirestoreActivity, FirestoreVideo, FirestoreResource
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,49 +25,60 @@ def home(request):
     selected_topics = request.GET.getlist('topic', [])
     selected_location = request.GET.get('location', '')
     search_query = request.GET.get('q', '')
-    
-    # Build query
-    activities = Activity.objects.filter(is_published=True)
-    
-    # Apply filters
-    if selected_grade:
-        activities = activities.filter(grade=selected_grade)
-    
-    if selected_location:
-        activities = activities.filter(location=selected_location)
-    
-    if search_query:
-        activities = activities.filter(
-            Q(title__icontains=search_query) |
-            Q(description__icontains=search_query)
+
+    if getattr(settings, 'USE_FIRESTORE', False):
+        # Use Firestore for data
+        activities_data = firestore_service.query_activities(
+            grade=selected_grade if selected_grade else None,
+            topics=selected_topics if selected_topics else None,
+            location=selected_location if selected_location else None,
+            search=search_query if search_query else None
         )
-    
-    # Filter by topics in Python (SQLite doesn't support JSON field lookups)
-    if selected_topics:
-        filtered_activities = []
-        for activity in activities:
-            activity_topics = activity.topics if isinstance(activity.topics, list) else []
-            # Check if ANY of the selected topics are in this activity's topics
-            if any(topic in activity_topics for topic in selected_topics):
-                filtered_activities.append(activity)
-        activities = filtered_activities
+        activities = [FirestoreActivity.from_dict(a) for a in activities_data]
+
+        # Get all topics from Firestore
+        all_topics = firestore_service.get_all_topics()
     else:
-        activities = list(activities)
-    
-    # Order by defined order (only if it's a QuerySet, not a list)
-    if not isinstance(activities, list):
-        activities = activities.order_by('order', 'activity_number')
-    else:
-        # Sort the list manually
-        activities = sorted(activities, key=lambda a: (a.order, a.activity_number))
-    
-    # Get all unique topics for filter buttons
-    all_activities = Activity.objects.filter(is_published=True)
-    all_topics = set()
-    for activity in all_activities:
-        all_topics.update(activity.topics if isinstance(activity.topics, list) else [])
-    all_topics = sorted(list(all_topics))
-    
+        # Use Django ORM (fallback)
+        activities = Activity.objects.filter(is_published=True)
+
+        # Apply filters
+        if selected_grade:
+            activities = activities.filter(grade=selected_grade)
+
+        if selected_location:
+            activities = activities.filter(location=selected_location)
+
+        if search_query:
+            activities = activities.filter(
+                Q(title__icontains=search_query) |
+                Q(description__icontains=search_query)
+            )
+
+        # Filter by topics in Python (SQLite doesn't support JSON field lookups)
+        if selected_topics:
+            filtered_activities = []
+            for activity in activities:
+                activity_topics = activity.topics if isinstance(activity.topics, list) else []
+                if any(topic in activity_topics for topic in selected_topics):
+                    filtered_activities.append(activity)
+            activities = filtered_activities
+        else:
+            activities = list(activities)
+
+        # Order by defined order
+        if not isinstance(activities, list):
+            activities = activities.order_by('order', 'activity_number')
+        else:
+            activities = sorted(activities, key=lambda a: (a.order, a.activity_number))
+
+        # Get all unique topics for filter buttons
+        all_activities = Activity.objects.filter(is_published=True)
+        all_topics = set()
+        for activity in all_activities:
+            all_topics.update(activity.topics if isinstance(activity.topics, list) else [])
+        all_topics = sorted(list(all_topics))
+
     context = {
         'activities': activities,
         'selected_grade': selected_grade,
@@ -82,56 +96,102 @@ def activity_detail(request, slug):
     Activity detail page with prerequisites, objectives, materials, etc.
     Dynamically loaded from database
     """
-    activity = get_object_or_404(Activity, slug=slug, is_published=True)
-    
-    # Track view if user is authenticated and video exists
-    if request.user.is_authenticated and activity.video_asset:
-        try:
-            session_id = request.session.session_key or 'anonymous'
-            # Check if this session already viewed this video (to avoid duplicates)
-            if not AssetView.objects.filter(
-                asset=activity.video_asset,
-                session_id=session_id
-            ).exists():
-                AssetView.objects.create(
+    if getattr(settings, 'USE_FIRESTORE', False):
+        # Use Firestore for data
+        activity_data = firestore_service.get_activity_by_slug(slug)
+        if not activity_data:
+            raise Http404("Activity not found")
+
+        activity = FirestoreActivity.from_dict(activity_data)
+
+        # Get video URL if video IDs exist
+        video_url = None
+        if activity.video_ids:
+            videos = firestore_service.get_videos_by_ids(activity.video_ids[:1])
+            if videos:
+                video = FirestoreVideo.from_dict(videos[0])
+                video_url = video.get_streaming_url(expiration_minutes=120)
+
+        # Get teacher resources
+        teacher_resources = []
+        if activity.teacher_resource_ids:
+            resources_data = firestore_service.get_resources_by_ids(activity.teacher_resource_ids)
+            for res_data in resources_data:
+                resource = FirestoreResource.from_dict(res_data)
+                teacher_resources.append({
+                    'resource': resource,
+                    'download_url': f'/download/resource/{resource.id}/'
+                })
+
+        # Get student resources
+        student_resources = []
+        if activity.student_resource_ids:
+            resources_data = firestore_service.get_resources_by_ids(activity.student_resource_ids)
+            for res_data in resources_data:
+                resource = FirestoreResource.from_dict(res_data)
+                student_resources.append({
+                    'resource': resource,
+                    'download_url': f'/download/resource/{resource.id}/'
+                })
+
+        # Get related activities (same grade)
+        related_data = firestore_service.query_activities(grade=activity.grade)
+        related_activities = [
+            FirestoreActivity.from_dict(a) for a in related_data
+            if a.get('id') != activity.id
+        ][:3]
+
+    else:
+        # Use Django ORM (fallback)
+        activity = get_object_or_404(Activity, slug=slug, is_published=True)
+
+        # Track view if user is authenticated and video exists
+        if request.user.is_authenticated and activity.video_asset:
+            try:
+                session_id = request.session.session_key or 'anonymous'
+                if not AssetView.objects.filter(
                     asset=activity.video_asset,
-                    user=request.user,
-                    session_id=session_id,
-                    referrer=request.META.get('HTTP_REFERER', '')
-                )
-                logger.info(f"View tracked: {activity.video_asset.title} by {request.user.username}")
-        except Exception as e:
-            logger.error(f"Failed to track view: {e}")
-    
-    # Get video streaming URL if available
-    video_url = None
-    if activity.video_asset:
-        try:
-            video_url = activity.video_asset.get_streaming_url(expiration_minutes=120)
-        except Exception as e:
-            logger.error(f"Error generating video URL: {e}")
-    
-    # Get resource download URLs (using tracking endpoint)
-    teacher_resources = []
-    for resource in activity.teacher_resources.all():
-        teacher_resources.append({
-            'resource': resource,
-            'download_url': f'/download/resource/{resource.id}/'
-        })
-    
-    student_resources = []
-    for resource in activity.student_resources.all():
-        student_resources.append({
-            'resource': resource,
-            'download_url': f'/download/resource/{resource.id}/'
-        })
-    
-    # Get related activities (same grade, different activities)
-    related_activities = Activity.objects.filter(
-        is_published=True,
-        grade=activity.grade
-    ).exclude(id=activity.id).order_by('order', 'activity_number')[:3]
-    
+                    session_id=session_id
+                ).exists():
+                    AssetView.objects.create(
+                        asset=activity.video_asset,
+                        user=request.user,
+                        session_id=session_id,
+                        referrer=request.META.get('HTTP_REFERER', '')
+                    )
+                    logger.info(f"View tracked: {activity.video_asset.title} by {request.user.username}")
+            except Exception as e:
+                logger.error(f"Failed to track view: {e}")
+
+        # Get video streaming URL if available
+        video_url = None
+        if activity.video_asset:
+            try:
+                video_url = activity.video_asset.get_streaming_url(expiration_minutes=120)
+            except Exception as e:
+                logger.error(f"Error generating video URL: {e}")
+
+        # Get resource download URLs
+        teacher_resources = []
+        for resource in activity.teacher_resources.all():
+            teacher_resources.append({
+                'resource': resource,
+                'download_url': f'/download/resource/{resource.id}/'
+            })
+
+        student_resources = []
+        for resource in activity.student_resources.all():
+            student_resources.append({
+                'resource': resource,
+                'download_url': f'/download/resource/{resource.id}/'
+            })
+
+        # Get related activities
+        related_activities = Activity.objects.filter(
+            is_published=True,
+            grade=activity.grade
+        ).exclude(id=activity.id).order_by('order', 'activity_number')[:3]
+
     context = {
         'activity': activity,
         'video_url': video_url,
@@ -175,41 +235,47 @@ def search_activities(request):
     grade = request.GET.get('grade', '')
     topics = request.GET.getlist('topic', [])
     location = request.GET.get('location', '')
-    
-    # Build query
-    activities = Activity.objects.filter(is_published=True)
-    
-    # Apply filters
-    if grade:
-        activities = activities.filter(grade=grade)
-    
-    if location:
-        activities = activities.filter(location=location)
-    
-    if query:
-        activities = activities.filter(
-            Q(title__icontains=query) |
-            Q(description__icontains=query)
+
+    if getattr(settings, 'USE_FIRESTORE', False):
+        # Use Firestore for data
+        activities_data = firestore_service.query_activities(
+            grade=grade if grade else None,
+            topics=topics if topics else None,
+            location=location if location else None,
+            search=query if query else None
         )
-    
-    # Filter by topics in Python (SQLite doesn't support JSON field lookups)
-    if topics:
-        filtered_activities = []
-        for activity in activities:
-            activity_topics = activity.topics if isinstance(activity.topics, list) else []
-            # Check if ANY of the selected topics are in this activity's topics
-            if any(topic in activity_topics for topic in topics):
-                filtered_activities.append(activity)
-        activities = filtered_activities
+        activities = [FirestoreActivity.from_dict(a) for a in activities_data]
     else:
-        activities = list(activities)
-    
-    # Order and prepare results
-    if not isinstance(activities, list):
-        activities = activities.order_by('order', 'activity_number')
-    else:
-        activities = sorted(activities, key=lambda a: (a.order, a.activity_number))
-    
+        # Use Django ORM (fallback)
+        activities = Activity.objects.filter(is_published=True)
+
+        if grade:
+            activities = activities.filter(grade=grade)
+
+        if location:
+            activities = activities.filter(location=location)
+
+        if query:
+            activities = activities.filter(
+                Q(title__icontains=query) |
+                Q(description__icontains=query)
+            )
+
+        if topics:
+            filtered_activities = []
+            for activity in activities:
+                activity_topics = activity.topics if isinstance(activity.topics, list) else []
+                if any(topic in activity_topics for topic in topics):
+                    filtered_activities.append(activity)
+            activities = filtered_activities
+        else:
+            activities = list(activities)
+
+        if not isinstance(activities, list):
+            activities = activities.order_by('order', 'activity_number')
+        else:
+            activities = sorted(activities, key=lambda a: (a.order, a.activity_number))
+
     # Return JSON if AJAX request
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         results = []
@@ -221,12 +287,12 @@ def search_activities(request):
                 'description': activity.description,
                 'activity_number': activity.activity_number,
                 'grade': activity.grade,
-                'topics': activity.topics,
+                'topics': activity.topics if isinstance(activity.topics, list) else [],
                 'icon_type': activity.icon_type,
                 'url': f'/activities/{activity.slug}/'
             })
         return JsonResponse({'activities': results})
-    
+
     # Otherwise, render template with results
     context = {
         'activities': activities,

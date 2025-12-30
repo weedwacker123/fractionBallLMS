@@ -276,6 +276,11 @@ FIREBASE_CONFIG = {
 FIREBASE_STORAGE_BUCKET = config('FIREBASE_STORAGE_BUCKET', default='')
 GOOGLE_APPLICATION_CREDENTIALS = config('GOOGLE_APPLICATION_CREDENTIALS', default='')
 
+# Firestore Integration
+# Set to True to read data from Firestore instead of Django ORM
+# Set to False to use Django ORM (for rollback or if Firestore is unavailable)
+USE_FIRESTORE = config('USE_FIRESTORE', default=True, cast=bool)
+
 # Storage Backend Configuration
 # Set to 'firebase' to enforce Firebase-only storage (recommended for production)
 # Set to 'local' to use local storage only (for development/testing)
