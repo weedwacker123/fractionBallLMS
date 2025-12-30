@@ -1,244 +1,61 @@
-import {
-  FireCMS,
-  Scaffold,
-  AppBar,
-  Drawer,
-  NavigationRoutes,
-  SideDialogs,
-  SnackbarProvider,
-  useBuildNavigationController,
-  CircularProgressCenter,
-} from "@firecms/core";
-import {
-  FirebaseAuthController,
-  FirebaseLoginView,
-  useFirebaseAuthController,
-  useFirebaseStorageSource,
-  useFirestoreDelegate,
-  useInitialiseFirebase,
-} from "@firecms/firebase";
-import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
-import { FirebaseApp } from "firebase/app";
-import { firebaseConfig } from "./firebase-config";
+import { Component, ReactNode, Suspense, lazy } from "react";
 
-// Import all collections
-import { activitiesCollection } from "./collections/activities";
-import { videosCollection } from "./collections/videos";
-import { resourcesCollection } from "./collections/resources";
-import { taxonomiesCollection } from "./collections/taxonomies";
-import { pagesCollection } from "./collections/pages";
-import { menuItemsCollection } from "./collections/menuItems";
-import { faqsCollection } from "./collections/faqs";
-import { communityPostsCollection } from "./collections/communityPosts";
-import { usersCollection } from "./collections/users";
+// Error Boundary
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: "" };
+  }
 
-// Create custom theme
-const theme = createTheme({
-  palette: {
-    mode: "light",
-    primary: {
-      main: "#ef4444",
-      light: "#f87171",
-      dark: "#dc2626",
-    },
-    secondary: {
-      main: "#fde047",
-      light: "#fef08a",
-      dark: "#facc15",
-    },
-    background: {
-      default: "#f9fafb",
-      paper: "#ffffff",
-    },
-  },
-  typography: {
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: "none",
-          borderRadius: 8,
-        },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-        },
-      },
-    },
-  },
-});
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message };
+  }
 
-// Define all collections
-const collections = [
-  activitiesCollection,
-  videosCollection,
-  resourcesCollection,
-  taxonomiesCollection,
-  pagesCollection,
-  menuItemsCollection,
-  faqsCollection,
-  communityPostsCollection,
-  usersCollection,
-];
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("Error caught:", error, info);
+  }
 
-// Loading component
-function LoadingScreen({ message = "Loading Fraction Ball Admin..." }: { message?: string }) {
-  return (
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      minHeight: "100vh",
-      background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
-    }}>
-      <div style={{
-        width: 50,
-        height: 50,
-        border: "4px solid #e5e7eb",
-        borderTopColor: "#ef4444",
-        borderRadius: "50%",
-        animation: "spin 1s linear infinite",
-      }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <p style={{ marginTop: 16, color: "#374151", fontSize: 16, fontWeight: 500 }}>
-        {message}
-      </p>
-    </div>
-  );
-}
-
-// Error component
-function ErrorScreen({ error }: { error: string }) {
-  return (
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      minHeight: "100vh",
-      padding: 24,
-      textAlign: "center",
-      background: "#fef2f2",
-    }}>
-      <h2 style={{ color: "#ef4444", marginBottom: 16 }}>Configuration Error</h2>
-      <p style={{ color: "#374151", maxWidth: 400 }}>{error}</p>
-      <button 
-        onClick={() => window.location.reload()}
-        style={{
-          marginTop: 24,
-          padding: "12px 24px",
-          background: "#ef4444",
-          color: "white",
-          border: "none",
-          borderRadius: 8,
-          cursor: "pointer",
-          fontWeight: 500,
-        }}
-      >
-        Retry
-      </button>
-    </div>
-  );
-}
-
-// Inner app component - only rendered when Firebase is ready
-function FireCMSApp({ firebaseApp }: { firebaseApp: FirebaseApp }) {
-  // Firestore delegate for data operations
-  const firestoreDelegate = useFirestoreDelegate({ firebaseApp });
-
-  // Firebase storage for file uploads
-  const storageSource = useFirebaseStorageSource({ firebaseApp });
-
-  // Authentication controller
-  const authController: FirebaseAuthController = useFirebaseAuthController({
-    firebaseApp,
-  });
-
-  // Navigation controller
-  const navigationController = useBuildNavigationController({
-    collections,
-    authController,
-    dataSourceDelegate: firestoreDelegate,
-  });
-
-  // Check if user is authenticated
-  const canAccessMainView = authController.user !== null;
-
-  return (
-    <FireCMS
-      navigationController={navigationController}
-      authController={authController}
-      dataSourceDelegate={firestoreDelegate}
-      storageSource={storageSource}
-    >
-      {({ loading }) => {
-        if (loading) {
-          return <CircularProgressCenter />;
-        }
-
-        if (!canAccessMainView) {
-          return (
-            <FirebaseLoginView
-              allowSkipLogin={false}
-              signInOptions={["google.com", "password"]}
-              firebaseApp={firebaseApp}
-              authController={authController}
-              logo="/logo.svg"
-            />
-          );
-        }
-
-        return (
-          <Scaffold
-            autoOpenDrawer={true}
-            logo="/logo.svg"
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 40, textAlign: "center", backgroundColor: "#fef2f2", minHeight: "100vh" }}>
+          <h1 style={{ color: "#ef4444" }}>Something went wrong</h1>
+          <p style={{ color: "#666", marginTop: 20 }}>{this.state.error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ marginTop: 20, padding: "10px 20px", backgroundColor: "#ef4444", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }}
           >
-            <AppBar title="Fraction Ball Admin" />
-            <Drawer />
-            <NavigationRoutes />
-            <SideDialogs />
-          </Scaffold>
-        );
-      }}
-    </FireCMS>
+            Reload
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Lazy load FireCMS
+const FireCMSWrapper = lazy(() => import("./FireCMSWrapper"));
+
+// Loading screen
+function Loading() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", backgroundColor: "#111827" }}>
+      <svg width="60" height="60" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="45" fill="#EF4444"/>
+        <path d="M50 15 L80 50 L50 85 L20 50 Z" fill="white"/>
+      </svg>
+      <p style={{ color: "white", marginTop: 20 }}>Loading FractionBall Admin...</p>
+    </div>
   );
 }
 
-// Main App component
 export default function App() {
-  // Initialize Firebase first
-  const { firebaseApp, firebaseConfigLoading, configError } = useInitialiseFirebase({
-    firebaseConfig,
-  });
-
-  // Show loading while Firebase initializes
-  if (firebaseConfigLoading) {
-    return <LoadingScreen message="Initializing Firebase..." />;
-  }
-
-  // Show error if Firebase config failed
-  if (configError) {
-    return <ErrorScreen error={configError} />;
-  }
-
-  // Show error if no Firebase app
-  if (!firebaseApp) {
-    return <ErrorScreen error="Failed to initialize Firebase. Please check your configuration." />;
-  }
-
-  // Render the main app with Firebase ready
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <SnackbarProvider>
-        <FireCMSApp firebaseApp={firebaseApp} />
-      </SnackbarProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <Suspense fallback={<Loading />}>
+        <FireCMSWrapper />
+      </Suspense>
+    </ErrorBoundary>
   );
 }

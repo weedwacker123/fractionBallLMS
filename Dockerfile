@@ -8,6 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     postgresql-client \
+    libpq-dev \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -26,15 +27,18 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project
 COPY . .
 
+# Make entrypoint executable
+RUN chmod +x docker-entrypoint.sh
+
 # Install Tailwind CSS
 RUN npm install -D tailwindcss @tailwindcss/forms @tailwindcss/typography
 RUN npx tailwindcss init
 
-# Collect static files (will be overridden in compose)
-RUN python manage.py collectstatic --noinput || true
+# Expose port (Cloud Run uses 8080)
+EXPOSE 8080
 
-# Expose port
-EXPOSE 8000
+# Set port environment variable
+ENV PORT=8080
 
-# Run server
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "fractionball.wsgi:application"]
+# Use entrypoint script (runs migrations on startup)
+ENTRYPOINT ["./docker-entrypoint.sh"]

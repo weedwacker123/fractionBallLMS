@@ -1,36 +1,65 @@
 {
-  "hosting": {
-    "public": "staticfiles",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "/static/**",
-        "destination": "/static/**"
-      },
-      {
-        "source": "**",
-        "run": {
-          "serviceId": "fractionball-backend",
-          "region": "us-central1"
-        }
-      }
-    ],
-    "headers": [
-      {
-        "source": "/static/**",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=31536000"
+  "hosting": [
+    {
+      "target": "main",
+      "public": "staticfiles",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "/static/**",
+          "destination": "/static/**"
+        },
+        {
+          "source": "**",
+          "run": {
+            "serviceId": "fractionball-backend",
+            "region": "us-central1"
           }
-        ]
-      }
-    ]
-  },
+        }
+      ],
+      "headers": [
+        {
+          "source": "/static/**",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=31536000"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "target": "admin",
+      "public": "admin-cms/dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "headers": [
+        {
+          "source": "**/*.@(js|css)",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=31536000"
+            }
+          ]
+        }
+      ]
+    }
+  ],
   "storage": {
     "rules": "storage.rules"
   },

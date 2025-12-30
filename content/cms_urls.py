@@ -12,3 +12,4 @@ urlpatterns = [
     path('logout/', cms_views.cms_logout, name='logout'),
 ]
 
+

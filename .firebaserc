@@ -1,13 +1,18 @@
 {
   "projects": {
     "default": "fractionball-lms"
-  }
+  },
+  "targets": {
+    "fractionball-lms": {
+      "hosting": {
+        "main": [
+          "fractionball-lms"
+        ],
+        "admin": [
+          "fractionball-admin"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
-
-
-
-
-
-
-
-
