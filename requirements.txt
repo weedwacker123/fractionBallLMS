@@ -6,7 +6,7 @@ django-extensions==3.2.3
 django-filter==23.5
 
 # Database
-psycopg2-binary==2.9.7
+psycopg2-binary==2.9.9
 redis==5.0.1
 django-redis==5.4.0
 dj-database-url==2.1.0

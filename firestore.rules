@@ -1,60 +1,61 @@
 rules_version = '2';
 
 // Firestore Security Rules for Fraction Ball LMS
-// Note: Primary data storage is in Django/PostgreSQL backend
-// Firestore is used for real-time features only (future use)
+// Primary data storage is in Django/PostgreSQL backend
+// Firestore is used for synced data (users, community posts) and FireCMS content
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // Helper function to check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    // Helper function to check if user is admin
-    // Note: Admin status is managed in Django, this is for client-side checks only
-    function isAdmin() {
-      return request.auth != null && request.auth.token.admin == true;
-    }
-    
-    // User presence/online status (real-time feature)
-    match /presence/{userId} {
+
+    // User profiles - readable by authenticated users
+    // Writes happen via Admin SDK (server-side from Django)
+    match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if false; // Server-only writes via Admin SDK
     }
-    
-    // Real-time notifications (future feature)
-    match /notifications/{userId}/{notificationId} {
-      allow read: if isAuthenticated() && request.auth.uid == userId;
-      allow write: if isAuthenticated() && request.auth.uid == userId;
-      allow delete: if isAuthenticated() && request.auth.uid == userId;
+
+    // Community posts - readable by authenticated users
+    // Writes happen via Admin SDK (server-side from Django)
+    match /communityPosts/{postId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Server-only writes via Admin SDK
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow write: if false; // Server-only writes via Admin SDK
+      }
     }
-    
+
+    // Content from FireCMS (read-only for authenticated users)
+    match /activities/{activityId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    match /videos/{videoId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    match /resources/{resourceId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    match /faqs/{faqId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
     // Deny all other access by default
-    // All main data operations go through Django backend
     match /{document=**} {
       allow read, write: if false;
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

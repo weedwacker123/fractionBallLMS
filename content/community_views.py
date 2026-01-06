@@ -136,8 +136,26 @@ def create_post(request):
                 category=category,
                 related_activity=activity
             )
-            
+
             logger.info(f"Forum post created: {post.id} by {request.user.username}")
+
+            # Sync to Firestore (non-blocking)
+            try:
+                from content.firestore_service import create_community_post
+                create_community_post(str(post.id), {
+                    'title': post.title,
+                    'content': post.content,
+                    'slug': post.slug,
+                    'authorId': request.user.firebase_uid,
+                    'authorName': request.user.get_full_name(),
+                    'category': post.category.name if post.category else None,
+                    'status': 'active',
+                    'viewCount': 0,
+                    'createdAt': post.created_at.isoformat(),
+                    'lastActivityAt': post.last_activity_at.isoformat()
+                })
+            except Exception as e:
+                logger.warning(f"Failed to sync post to Firestore: {e}")
             messages.success(request, f'Post "{title}" created successfully!')
             return redirect('community-post-detail', slug=post.slug)
             
@@ -193,12 +211,26 @@ def add_comment(request, post_slug):
             content=content,
             parent_comment=parent_comment
         )
-        
+
         # Update post's last activity
         post.last_activity_at = timezone.now()
         post.save(update_fields=['last_activity_at'])
-        
+
         logger.info(f"Comment added to post {post.id} by {request.user.username}")
+
+        # Sync to Firestore (non-blocking)
+        try:
+            from content.firestore_service import add_comment_to_post
+            add_comment_to_post(str(post.id), str(comment.id), {
+                'content': comment.content,
+                'authorId': request.user.firebase_uid,
+                'authorName': request.user.get_full_name(),
+                'parentCommentId': str(parent_comment.id) if parent_comment else None,
+                'createdAt': comment.created_at.isoformat(),
+                'isDeleted': False
+            })
+        except Exception as e:
+            logger.warning(f"Failed to sync comment to Firestore: {e}")
         
         return JsonResponse({
             'success': True,
@@ -237,9 +269,16 @@ def delete_post(request, post_id):
         
         post_title = post.title
         post.delete()
-        
+
         logger.info(f"Forum post deleted: {post_id} by {request.user.username}")
-        
+
+        # Sync to Firestore (non-blocking)
+        try:
+            from content.firestore_service import delete_community_post
+            delete_community_post(str(post_id))
+        except Exception as e:
+            logger.warning(f"Failed to delete post from Firestore: {e}")
+
         return JsonResponse({
             'success': True,
             'message': f'Post "{post_title}" deleted successfully'
@@ -272,9 +311,16 @@ def delete_comment(request, comment_id):
         # Soft delete (mark as deleted)
         comment.is_deleted = True
         comment.save(update_fields=['is_deleted'])
-        
+
         logger.info(f"Comment deleted: {comment_id} by {request.user.username}")
-        
+
+        # Sync to Firestore (non-blocking)
+        try:
+            from content.firestore_service import delete_comment as firestore_delete_comment
+            firestore_delete_comment(str(comment.post.id), str(comment_id))
+        except Exception as e:
+            logger.warning(f"Failed to sync comment deletion to Firestore: {e}")
+
         return JsonResponse({
             'success': True,
             'message': 'Comment deleted successfully'
@@ -323,9 +369,21 @@ def edit_post(request, post_id):
                     post.category = ForumCategory.objects.get(id=category_id)
                 except ForumCategory.DoesNotExist:
                     pass
-            
+
             post.save()
-            
+
+            # Sync to Firestore (non-blocking)
+            try:
+                from content.firestore_service import update_community_post
+                update_community_post(str(post.id), {
+                    'title': post.title,
+                    'content': post.content,
+                    'category': post.category.name if post.category else None,
+                    'updatedAt': timezone.now().isoformat()
+                })
+            except Exception as e:
+                logger.warning(f"Failed to sync post update to Firestore: {e}")
+
             messages.success(request, 'Post updated successfully!')
             return redirect('community-post-detail', slug=post.slug)
             

@@ -634,35 +634,170 @@ def sync_activities_to_django(user, school):
 def full_sync(user, school):
     """
     Perform a full sync of all Firestore content to Django
-    
+
     Args:
         user: Django user for ownership
         school: Django school to associate with
-        
+
     Returns:
         Dictionary with sync results
     """
     logger.info("Starting full Firestore → Django sync...")
-    
+
     results = {
         'videos': {'created': 0, 'updated': 0},
         'resources': {'created': 0, 'updated': 0},
         'activities': {'created': 0, 'updated': 0},
     }
-    
+
     # Sync videos first (activities reference them)
     v_created, v_updated = sync_videos_to_django(user, school)
     results['videos'] = {'created': v_created, 'updated': v_updated}
-    
+
     # Sync resources
     r_created, r_updated = sync_resources_to_django(user, school)
     results['resources'] = {'created': r_created, 'updated': r_updated}
-    
+
     # Sync activities last
     a_created, a_updated = sync_activities_to_django(user, school)
     results['activities'] = {'created': a_created, 'updated': a_updated}
-    
+
     logger.info(f"Sync complete: {results}")
     return results
+
+
+# =============================================================================
+# Firestore Write Functions (Django → Firestore sync)
+# =============================================================================
+
+def create_or_update_user_profile(firebase_uid: str, user_data: Dict[str, Any]) -> bool:
+    """
+    Write/update user profile to Firestore users collection
+
+    Args:
+        firebase_uid: Firebase user ID (used as document ID)
+        user_data: Dictionary with user profile data
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        db = get_firestore_client()
+        db.collection('users').document(firebase_uid).set(user_data, merge=True)
+        logger.info(f"Synced user profile to Firestore: {firebase_uid}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to sync user profile to Firestore: {e}")
+        return False
+
+
+def create_community_post(post_id: str, post_data: Dict[str, Any]) -> bool:
+    """
+    Create a community post in Firestore
+
+    Args:
+        post_id: Django post ID (used as document ID)
+        post_data: Dictionary with post data
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        db = get_firestore_client()
+        db.collection('communityPosts').document(str(post_id)).set(post_data)
+        logger.info(f"Created community post in Firestore: {post_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to create community post in Firestore: {e}")
+        return False
+
+
+def add_comment_to_post(post_id: str, comment_id: str, comment_data: Dict[str, Any]) -> bool:
+    """
+    Add comment to Firestore post's comments subcollection
+
+    Args:
+        post_id: Django post ID
+        comment_id: Django comment ID (used as document ID)
+        comment_data: Dictionary with comment data
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        db = get_firestore_client()
+        db.collection('communityPosts').document(str(post_id)).collection('comments').document(str(comment_id)).set(comment_data)
+        logger.info(f"Added comment {comment_id} to post {post_id} in Firestore")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to add comment to Firestore: {e}")
+        return False
+
+
+def update_community_post(post_id: str, updates: Dict[str, Any]) -> bool:
+    """
+    Update existing Firestore community post
+
+    Args:
+        post_id: Django post ID
+        updates: Dictionary with fields to update
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        db = get_firestore_client()
+        db.collection('communityPosts').document(str(post_id)).update(updates)
+        logger.info(f"Updated community post in Firestore: {post_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to update community post in Firestore: {e}")
+        return False
+
+
+def delete_community_post(post_id: str) -> bool:
+    """
+    Delete post from Firestore
+
+    Args:
+        post_id: Django post ID
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        db = get_firestore_client()
+        # Delete all comments in subcollection first
+        comments_ref = db.collection('communityPosts').document(str(post_id)).collection('comments')
+        for comment in comments_ref.stream():
+            comment.reference.delete()
+        # Delete the post document
+        db.collection('communityPosts').document(str(post_id)).delete()
+        logger.info(f"Deleted community post from Firestore: {post_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to delete community post from Firestore: {e}")
+        return False
+
+
+def delete_comment(post_id: str, comment_id: str) -> bool:
+    """
+    Soft delete comment in Firestore (mark as deleted)
+
+    Args:
+        post_id: Django post ID
+        comment_id: Django comment ID
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        db = get_firestore_client()
+        db.collection('communityPosts').document(str(post_id)).collection('comments').document(str(comment_id)).update({'isDeleted': True})
+        logger.info(f"Soft deleted comment {comment_id} in Firestore")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to delete comment from Firestore: {e}")
+        return False
 
 

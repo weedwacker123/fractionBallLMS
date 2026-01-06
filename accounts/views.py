@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
+from django.utils import timezone
 from firebase_admin import auth
 import logging
 import json
@@ -123,10 +124,25 @@ def verify_token(request):
         # Store token in session
         request.session['firebase_token'] = token
         request.session['user_id'] = user.id
-        
+
         # Set session to expire in 1 hour
         request.session.set_expiry(3600)
-        
+
+        # Sync user profile to Firestore (non-blocking)
+        try:
+            from content.firestore_service import create_or_update_user_profile
+            create_or_update_user_profile(firebase_uid, {
+                'email': user.email,
+                'displayName': user.get_full_name(),
+                'role': user.role,
+                'school': user.school.name if user.school else None,
+                'createdAt': user.created_at.isoformat() if hasattr(user, 'created_at') and user.created_at else None,
+                'lastLogin': timezone.now().isoformat()
+            })
+        except Exception as e:
+            logger.warning(f"Failed to sync user profile to Firestore: {e}")
+            # Non-blocking - don't fail login if Firestore sync fails
+
         return JsonResponse({
             'success': True,
             'user': {
