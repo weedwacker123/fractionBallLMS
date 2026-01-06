@@ -13,15 +13,22 @@ logger = logging.getLogger(__name__)
 
 
 def get_firestore_client():
-    """Get Firestore client with explicit database name"""
+    """Get Firestore client with explicit database name and credentials"""
     from google.cloud import firestore as gc_firestore
+    from google.oauth2 import service_account
     from django.conf import settings
 
+    # Use service account credentials from Django settings
+    credentials = service_account.Credentials.from_service_account_info(
+        settings.FIREBASE_CONFIG
+    )
+
     # Use google-cloud-firestore directly with explicit database='default'
-    # This fixes an issue where the SDK's (default) placeholder doesn't work
+    # Note: The database is named 'default' (not '(default)') in this project
     return gc_firestore.Client(
         project='fractionball-lms',
-        database='default'
+        database='default',
+        credentials=credentials
     )
 
 

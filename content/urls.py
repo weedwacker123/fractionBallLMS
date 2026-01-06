@@ -1,9 +1,9 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import SimpleRouter
 from . import views, library_views, playlist_views, approval_views, bulk_views, reporting_views
 
-# Create router for ViewSets
-router = DefaultRouter()
+# Use SimpleRouter (not DefaultRouter) to avoid duplicate format_suffix registration
+router = SimpleRouter()
 router.register(r'videos', views.VideoAssetViewSet, basename='videoasset')
 router.register(r'resources', views.ResourceViewSet, basename='resource')
 # Note: Playlist management moved to V4 URLs (content/v4_urls.py)

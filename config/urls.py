@@ -1,9 +1,9 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import SimpleRouter
 from . import views
 
-# Create router for config ViewSets
-router = DefaultRouter()
+# Use SimpleRouter (not DefaultRouter) to avoid duplicate format_suffix registration
+router = SimpleRouter()
 router.register(r'system', views.SystemConfigViewSet, basename='system-config')
 router.register(r'features', views.FeatureFlagViewSet, basename='feature-flag')
 

@@ -3,7 +3,7 @@ URL Configuration for file upload endpoints
 """
 
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import SimpleRouter
 
 from .upload_views import (
     FileUploadViewSet,
@@ -11,8 +11,8 @@ from .upload_views import (
     get_resource_download_url
 )
 
-# Create router for ViewSet
-router = DefaultRouter()
+# Use SimpleRouter (not DefaultRouter) to avoid duplicate format_suffix registration
+router = SimpleRouter()
 router.register(r'uploads', FileUploadViewSet, basename='file-upload')
 
 urlpatterns = [
