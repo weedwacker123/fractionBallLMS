@@ -271,11 +271,11 @@
         });
     </script>
     
-    <!-- Firebase SDK and Authentication -->
     {% if user.is_authenticated %}
+    <!-- Firebase SDK - Only loaded for authenticated users (for logout functionality) -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getAuth, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
         // Firebase configuration
         const firebaseConfig = {
@@ -290,60 +290,6 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
 
-        // Check authentication
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // User is signed in
-                console.log('✅ User authenticated:', user.email);
-            } else {
-                // No user signed in, redirect to login if on protected page
-                console.log('⚠️ No user authenticated');
-                // Optionally redirect to login
-                // window.location.href = '/accounts/login/';
-            }
-        });
-
-        // User menu dropdown toggle
-        const userMenuBtn = document.getElementById('userMenuBtn');
-        const userDropdown = document.getElementById('userDropdown');
-        
-        if (userMenuBtn && userDropdown) {
-            userMenuBtn.addEventListener('click', () => {
-                userDropdown.classList.toggle('hidden');
-            });
-            
-            // Close dropdown when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!userMenuBtn.contains(e.target) && !userDropdown.contains(e.target)) {
-                    userDropdown.classList.add('hidden');
-                }
-            });
-        }
-        
-        // Logout functionality
-        const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', async () => {
-                try {
-                    await signOut(auth);
-                    
-                    // Clear session on backend
-                    const response = await fetch('/accounts/logout/', {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken')
-                        }
-                    });
-                    
-                    // Redirect to login
-                    window.location.href = '/accounts/login/';
-                } catch (error) {
-                    console.error('Logout error:', error);
-                    alert('Failed to log out: ' + error.message);
-                }
-            });
-        }
-        
         // Helper function to get cookie
         function getCookie(name) {
             let cookieValue = null;
@@ -358,6 +304,42 @@
                 }
             }
             return cookieValue;
+        }
+
+        // User menu dropdown toggle
+        const userMenuBtn = document.getElementById('userMenuBtn');
+        const userDropdown = document.getElementById('userDropdown');
+
+        if (userMenuBtn && userDropdown) {
+            userMenuBtn.addEventListener('click', () => {
+                userDropdown.classList.toggle('hidden');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!userMenuBtn.contains(e.target) && !userDropdown.contains(e.target)) {
+                    userDropdown.classList.add('hidden');
+                }
+            });
+        }
+
+        // Logout functionality
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                try {
+                    // Sign out from Firebase
+                    await signOut(auth);
+                } catch (error) {
+                    console.error('Firebase signout error:', error);
+                }
+
+                // Clear the firebase_token cookie
+                document.cookie = 'firebase_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+
+                // Redirect to Django logout (this clears the session)
+                window.location.href = '/accounts/logout/';
+            });
         }
     </script>
     {% endif %}

@@ -16,9 +16,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+@login_required
 def home(request):
     """
     Main home page with activity cards - dynamically loaded from database
+    Requires authentication.
     """
     # Get filter parameters
     selected_grade = request.GET.get('grade', '5')
@@ -91,10 +93,11 @@ def home(request):
     return render(request, 'home.html', context)
 
 
+@login_required
 def activity_detail(request, slug):
     """
     Activity detail page with prerequisites, objectives, materials, etc.
-    Dynamically loaded from database
+    Dynamically loaded from database. Requires authentication.
     """
     if getattr(settings, 'USE_FIRESTORE', False):
         # Use Firestore for data
@@ -202,16 +205,18 @@ def activity_detail(request, slug):
     return render(request, 'activity_detail.html', context)
 
 
+@login_required
 def community(request):
     """
-    Community page for teacher collaboration
+    Community page for teacher collaboration. Requires authentication.
     """
     return render(request, 'community.html')
 
 
+@login_required
 def faq(request):
     """
-    FAQ page
+    FAQ page. Requires authentication.
     """
     return render(request, 'faq.html')
 
@@ -225,10 +230,11 @@ def my_notes(request):
     return render(request, 'notes.html')
 
 
+@login_required
 def search_activities(request):
     """
-    AJAX endpoint for searching/filtering activities
-    Returns JSON for dynamic updates
+    AJAX endpoint for searching/filtering activities.
+    Returns JSON for dynamic updates. Requires authentication.
     """
     # Get search parameters
     query = request.GET.get('q', '')

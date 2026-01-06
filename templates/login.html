@@ -266,8 +266,7 @@
             signInWithEmailAndPassword,
             createUserWithEmailAndPassword,
             signInWithPopup,
-            GoogleAuthProvider,
-            onAuthStateChanged
+            GoogleAuthProvider
         } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
         // Firebase configuration
@@ -283,7 +282,14 @@
 
         // Initialize Firebase
         let app, auth, googleProvider;
-        
+
+        // Get the 'next' parameter from URL for redirect after login
+        const urlParams = new URLSearchParams(window.location.search);
+        const nextUrl = urlParams.get('next') || '/';
+
+        // Flag to prevent multiple redirect attempts
+        let isRedirecting = false;
+
         function showConnectionStatus(message, type = 'loading') {
             const statusEl = document.getElementById('connectionStatus');
             if (type === 'success') {
@@ -370,41 +376,45 @@
         
         // Handle successful authentication
         async function handleAuthSuccess(user) {
+            // Prevent multiple redirects
+            if (isRedirecting) return;
+            isRedirecting = true;
+
             try {
                 console.log('✅ Authentication successful:', user.email);
                 showSuccess();
-                
+
                 // Get Firebase ID token
                 const idToken = await user.getIdToken();
-                
+
                 // Store token in cookie
                 document.cookie = `firebase_token=${idToken}; path=/; max-age=3600; SameSite=Lax`;
-                
+
                 // Send to backend for verification
                 const response = await fetch('/accounts/verify-token/', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken')
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ token: idToken })
                 });
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     console.log('✅ Backend verification successful:', data);
-                    
-                    // Redirect to home page
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 1500);
+                    console.log('✅ Redirecting to:', nextUrl);
+
+                    // Redirect immediately
+                    window.location.href = nextUrl;
                 } else {
-                    const data = await response.json();
-                    throw new Error(data.error || 'Authentication failed on server');
+                    const errorData = await response.json();
+                    console.error('❌ Backend verification failed:', errorData);
+                    throw new Error(errorData.error || 'Authentication failed on server');
                 }
             } catch (error) {
                 console.error('Auth success handler error:', error);
                 showError(error.message || 'Failed to complete authentication');
+                isRedirecting = false; // Reset so user can try again
             }
         }
         
@@ -499,14 +509,10 @@
             return cookieValue;
         }
         
-        // Check if already authenticated
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                console.log('User already authenticated:', user.email);
-                // Optionally auto-redirect
-                // window.location.href = '/';
-            }
-        });
+        // Note: We do NOT auto-redirect based on Firebase auth state.
+        // The Django middleware handles authentication. If user is already
+        // authenticated in Django, login_view redirects them to home.
+        // If Firebase has a user but Django doesn't, let user click sign in manually.
 
         // Toggle between login and signup forms
         document.getElementById('toggleSignup').addEventListener('click', (e) => {

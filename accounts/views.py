@@ -1,16 +1,20 @@
+import time
+import json
+import logging
 from django.shortcuts import render, redirect
-from django.contrib.auth import get_user_model, authenticate, login as auth_login
+from django.contrib.auth import get_user_model, authenticate, login as auth_login, login
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
 from django.utils import timezone
 from firebase_admin import auth
-import logging
-import json
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+# Token cache duration in seconds (5 minutes) - must match middleware
+TOKEN_CACHE_DURATION = 300
 
 
 def login_view(request):
@@ -52,10 +56,12 @@ def django_login_view(request):
     return render(request, 'django_login.html')
 
 
+@csrf_exempt
 @require_http_methods(["POST"])
 def verify_token(request):
     """
-    Verify Firebase token and create/update user session
+    Verify Firebase token and create/update user session.
+    CSRF exempt because authentication is done via Firebase token verification.
     """
     try:
         # Parse request body
@@ -121,9 +127,18 @@ def verify_token(request):
             
             logger.info(f"Created new user: {user.email} ({user.username})")
         
-        # Store token in session
+        # CRITICAL: Log the user in using Django's auth system
+        # This sets _auth_user_id and _auth_user_backend in session
+        # which makes @login_required and request.user.is_authenticated work
+        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+
+        # Store Firebase-specific data in session
         request.session['firebase_token'] = token
         request.session['user_id'] = user.id
+
+        # Set auth cache for faster subsequent requests (must match middleware)
+        request.session['cached_user_id'] = user.id
+        request.session['auth_cache_expiry'] = time.time() + TOKEN_CACHE_DURATION
 
         # Set session to expire in 1 hour
         request.session.set_expiry(3600)
@@ -163,13 +178,13 @@ def verify_token(request):
 @require_http_methods(["POST", "GET"])
 def logout_view(request):
     """
-    Logout user by clearing session
+    Logout user by clearing session and all auth-related data
     """
-    # Clear session
+    # Clear all session data (this clears firebase_token, cached_user_id, auth_cache_expiry, etc.)
     request.session.flush()
-    
+
     # Clear Firebase token cookie
     response = redirect('/accounts/login/')
     response.delete_cookie('firebase_token')
-    
+
     return response
