@@ -25,13 +25,20 @@ class FirestoreActivity:
     location: str = 'classroom'
     icon_type: str = 'cone'
     prerequisites: List[str] = field(default_factory=list)
-    learning_objectives: str = ''
+    learning_objectives: List[str] = field(default_factory=list)  # Changed to list
     materials: List[str] = field(default_factory=list)
     game_rules: List[str] = field(default_factory=list)
     key_terms: Dict[str, str] = field(default_factory=dict)
     thumbnail_url: str = ''
     order: int = 0
-    # Video and resource references (Firestore doc IDs)
+    # New fields for direct uploads
+    estimated_time: int = 0  # in minutes
+    lesson_overview: List[Dict[str, Any]] = field(default_factory=list)
+    related_videos: List[Dict[str, Any]] = field(default_factory=list)
+    teacher_resources: List[Dict[str, Any]] = field(default_factory=list)
+    student_resources: List[Dict[str, Any]] = field(default_factory=list)
+    lesson_pdf: str = ''
+    # Legacy fields (kept for backward compatibility)
     video_ids: List[str] = field(default_factory=list)
     teacher_resource_ids: List[str] = field(default_factory=list)
     student_resource_ids: List[str] = field(default_factory=list)
@@ -118,6 +125,21 @@ class FirestoreActivity:
                     else:
                         teacher_resource_ids.append(rid)
 
+        # Extract direct upload fields (new CMS structure)
+        related_videos = data.get('relatedVideos', []) or []
+        teacher_resources = data.get('teacherResources', []) or []
+        student_resources = data.get('studentResources', []) or []
+        lesson_pdf = data.get('lessonPdf', '') or ''
+        estimated_time = data.get('estimatedTime', 0) or 0
+        lesson_overview = data.get('lessonOverview', []) or []
+
+        # Handle learningObjectives - can be string or array
+        learning_objectives_raw = data.get('learningObjectives', [])
+        if isinstance(learning_objectives_raw, str):
+            learning_objectives = [learning_objectives_raw] if learning_objectives_raw else []
+        else:
+            learning_objectives = learning_objectives_raw or []
+
         return cls(
             id=data.get('id', ''),
             title=data.get('title', 'Untitled Activity'),
@@ -129,12 +151,20 @@ class FirestoreActivity:
             location=location,
             icon_type=data.get('iconType', 'cone'),
             prerequisites=data.get('prerequisites', []),
-            learning_objectives=data.get('learningObjectives', ''),
+            learning_objectives=learning_objectives,
             materials=data.get('materials', []),
             game_rules=data.get('gameRules', []),
             key_terms=data.get('keyTerms', {}),
             thumbnail_url=data.get('thumbnailUrl', ''),
             order=data.get('order', 0),
+            # New direct upload fields
+            estimated_time=estimated_time,
+            lesson_overview=lesson_overview,
+            related_videos=related_videos,
+            teacher_resources=teacher_resources,
+            student_resources=student_resources,
+            lesson_pdf=lesson_pdf,
+            # Legacy fields
             video_ids=video_ids,
             teacher_resource_ids=teacher_resource_ids,
             student_resource_ids=student_resource_ids,

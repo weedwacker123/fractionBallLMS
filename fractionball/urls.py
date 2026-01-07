@@ -11,6 +11,7 @@ from api.views import home as api_home
 from django.shortcuts import render
 from config import views as config_views
 from content.simple_upload_views import simple_upload_view, my_uploads_view, delete_video, delete_resource
+from content.page_views import custom_page
 
 
 def health_check(request):
@@ -58,7 +59,10 @@ urlpatterns = [
     
     # Dashboard UI (Teacher)
     path('dashboard/', dashboard_view, name='dashboard'),
-    
+
+    # Custom CMS Pages
+    path('page/<slug:slug>/', custom_page, name='custom-page'),
+
     # CMS (Beautiful Admin Interface)
     path('cms/', include('content.cms_urls', namespace='cms')),
     

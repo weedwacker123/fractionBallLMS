@@ -60,16 +60,24 @@
             {% endif %}
             
             <!-- Post Actions -->
-            {% if user.is_authenticated and user == post.author %}
             <div class="flex gap-3 pt-4 border-t border-gray-200">
+                {% if user.is_authenticated and user == post.author %}
                 <a href="/community/post/{{ post.id }}/edit/" class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded hover:bg-gray-200 transition-colors">
                     Edit Post
                 </a>
                 <button onclick="deletePost('{{ post.id }}', '{{ post.title|escapejs }}')" class="px-4 py-2 bg-red-50 text-red-600 text-sm font-medium rounded hover:bg-red-100 transition-colors">
                     Delete Post
                 </button>
+                {% endif %}
+                {% if user.is_authenticated and user != post.author %}
+                <button onclick="showFlagModal()" class="px-4 py-2 bg-yellow-50 text-yellow-700 text-sm font-medium rounded hover:bg-yellow-100 transition-colors inline-flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
+                    </svg>
+                    Report Post
+                </button>
+                {% endif %}
             </div>
-            {% endif %}
         </div>
     </div>
     
@@ -266,6 +274,87 @@ function deleteComment(commentId) {
         alert('Failed to delete comment. Please try again.');
     });
 }
+
+// Flag post modal
+function showFlagModal() {
+    document.getElementById('flagModal').classList.remove('hidden');
+}
+
+function hideFlagModal() {
+    document.getElementById('flagModal').classList.add('hidden');
+    document.getElementById('flagReason').value = '';
+}
+
+// Submit flag
+document.getElementById('flagForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const reason = document.getElementById('flagReason').value.trim();
+    if (!reason) {
+        alert('Please provide a reason for reporting this post.');
+        return;
+    }
+
+    const submitBtn = this.querySelector('button[type="submit"]');
+
+    try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+
+        const response = await fetch('/community/post/{{ post.id }}/flag/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({ reason })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert(data.message);
+            hideFlagModal();
+        } else {
+            alert('Error: ' + data.message);
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Report';
+        }
+    } catch (error) {
+        console.error('Flag error:', error);
+        alert('Failed to submit report. Please try again.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Report';
+    }
+});
 </script>
+
+<!-- Flag Modal -->
+<div id="flagModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-gray-900">Report Post</h3>
+            <button onclick="hideFlagModal()" class="text-gray-400 hover:text-gray-500">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <p class="text-gray-600 mb-4">Please describe why you're reporting this post. Our moderators will review it.</p>
+        <form id="flagForm">
+            <textarea id="flagReason" rows="4" required
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-4"
+                      placeholder="Reason for reporting (e.g., inappropriate content, spam, etc.)"></textarea>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="hideFlagModal()" class="px-4 py-2 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-yellow-500 text-white font-medium rounded-lg hover:bg-yellow-600 transition-colors">
+                    Submit Report
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 

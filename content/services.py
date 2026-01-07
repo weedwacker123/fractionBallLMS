@@ -10,23 +10,24 @@ import mimetypes
 from datetime import datetime, timedelta
 import logging
 
+from . import site_config_service
+
 logger = logging.getLogger(__name__)
 
 
 class FirebaseStorageService:
     """Service for handling Firebase Storage operations"""
-    
-    # File size limits (in bytes)
-    MAX_VIDEO_SIZE = 500 * 1024 * 1024  # 500MB
-    MAX_RESOURCE_SIZE = 50 * 1024 * 1024  # 50MB
-    
-    # Allowed file types
-    ALLOWED_VIDEO_TYPES = [
-        'video/mp4', 'video/mpeg', 'video/quicktime', 
+
+    # Fallback values if CMS config unavailable
+    _DEFAULT_MAX_VIDEO_SIZE = 500 * 1024 * 1024  # 500MB
+    _DEFAULT_MAX_RESOURCE_SIZE = 50 * 1024 * 1024  # 50MB
+
+    _DEFAULT_VIDEO_TYPES = [
+        'video/mp4', 'video/mpeg', 'video/quicktime',
         'video/x-msvideo', 'video/webm'
     ]
-    
-    ALLOWED_RESOURCE_TYPES = [
+
+    _DEFAULT_RESOURCE_TYPES = [
         'application/pdf',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -37,7 +38,27 @@ class FirebaseStorageService:
         'text/plain',
         'image/jpeg', 'image/png', 'image/gif'
     ]
-    
+
+    @property
+    def MAX_VIDEO_SIZE(self):
+        """Get max video size from CMS config or use default"""
+        return site_config_service.get_max_video_size(self._DEFAULT_MAX_VIDEO_SIZE)
+
+    @property
+    def MAX_RESOURCE_SIZE(self):
+        """Get max resource size from CMS config or use default"""
+        return site_config_service.get_max_resource_size(self._DEFAULT_MAX_RESOURCE_SIZE)
+
+    @property
+    def ALLOWED_VIDEO_TYPES(self):
+        """Get allowed video types from CMS config or use default"""
+        return site_config_service.get_allowed_video_types(self._DEFAULT_VIDEO_TYPES)
+
+    @property
+    def ALLOWED_RESOURCE_TYPES(self):
+        """Get allowed resource types from CMS config or use default"""
+        return site_config_service.get_allowed_resource_types(self._DEFAULT_RESOURCE_TYPES)
+
     def __init__(self):
         """Initialize Firebase Storage client"""
         try:

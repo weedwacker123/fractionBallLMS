@@ -40,18 +40,48 @@ service firebase.storage {
     }
     
     // Lesson plans folder - PDFs only, 10MB max
+    // Public read: Required for Google Docs Viewer to display PDFs
+    // Note: Browsers may send different MIME types for PDFs, so we check multiple
     match /lesson-plans/{allPaths=**} {
-      allow read: if isAuthenticated();
-      
+      allow read: if true;  // Public read - LMS pages require Django login
+
       allow write: if isAuthenticated()
                    && isValidSize(10)
-                   && request.resource.contentType == 'application/pdf';
+                   && (request.resource.contentType == 'application/pdf'
+                       || request.resource.contentType == 'application/x-pdf'
+                       || request.resource.contentType == 'application/octet-stream');
     }
-    
+
+    // Activity videos folder - direct video uploads for activities
+    // Public read: Required for HTML5 video player (doesn't send Firebase auth)
+    match /activity-videos/{allPaths=**} {
+      allow read: if true;  // Public read - LMS pages require Django login
+
+      allow write: if isAuthenticated()
+                   && isValidSize(500)
+                   && request.resource.contentType.matches('video/.*');
+    }
+
+    // Activity resources folder - teacher/student resources uploaded directly in activities
+    // Public read: Required for direct download links
+    match /activity-resources/{allPaths=**} {
+      allow read: if true;  // Public read - LMS pages require Django login
+
+      allow write: if isAuthenticated()
+                   && isValidSize(50)
+                   && (request.resource.contentType == 'application/pdf'
+                       || request.resource.contentType == 'application/x-pdf'
+                       || request.resource.contentType == 'application/octet-stream'
+                       || request.resource.contentType.matches('application/vnd.ms-.*')
+                       || request.resource.contentType.matches('application/vnd.openxmlformats-.*')
+                       || request.resource.contentType == 'application/msword');
+    }
+
     // Thumbnails folder - Images only, 10MB max
+    // Public read: Required for image display
     match /thumbnails/{allPaths=**} {
-      allow read: if isAuthenticated();
-      
+      allow read: if true;  // Public read - LMS pages require Django login
+
       allow write: if isAuthenticated()
                    && isValidSize(10)
                    && request.resource.contentType.matches('image/.*');

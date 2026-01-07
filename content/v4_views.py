@@ -10,10 +10,31 @@ from django.db.models import Q
 from django.conf import settings
 from .models import VideoAsset, Resource, Activity, AssetView, AssetDownload
 from . import firestore_service
+from . import taxonomy_service
 from .firestore_adapters import FirestoreActivity, FirestoreVideo, FirestoreResource
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Firebase Storage bucket name
+FIREBASE_STORAGE_BUCKET = 'fractionball-lms.firebasestorage.app'
+
+
+def get_storage_url(path: str) -> str:
+    """
+    Convert a Firebase Storage path to a full download URL.
+    If the path is already a full URL, return it as-is.
+    """
+    if not path:
+        return ''
+    # If already a full URL, return as-is
+    if path.startswith('http://') or path.startswith('https://'):
+        return path
+    # Convert storage path to full Firebase Storage URL
+    # URL-encode the path (replace / with %2F)
+    from urllib.parse import quote
+    encoded_path = quote(path, safe='')
+    return f"https://firebasestorage.googleapis.com/v0/b/{FIREBASE_STORAGE_BUCKET}/o/{encoded_path}?alt=media"
 
 
 @login_required
@@ -81,6 +102,9 @@ def home(request):
             all_topics.update(activity.topics if isinstance(activity.topics, list) else [])
         all_topics = sorted(list(all_topics))
 
+    # Get taxonomies from CMS (cached)
+    taxonomies = taxonomy_service.get_all_taxonomies()
+
     context = {
         'activities': activities,
         'selected_grade': selected_grade,
@@ -88,7 +112,10 @@ def home(request):
         'selected_location': selected_location,
         'search_query': search_query,
         'all_topics': all_topics,
-        'grade_choices': ['K', '1', '2', '3', '4', '5', '6', '7', '8'],
+        'grade_choices': taxonomy_service.get_grade_keys(),
+        'grade_levels': taxonomies['grades'],
+        'topic_taxonomies': taxonomies['topics'],
+        'court_types': taxonomies['courtTypes'],
     }
     return render(request, 'home.html', context)
 
@@ -107,34 +134,63 @@ def activity_detail(request, slug):
 
         activity = FirestoreActivity.from_dict(activity_data)
 
-        # Get video URL if video IDs exist
+        # Get video URL from related_videos (new direct upload) or legacy video_ids
         video_url = None
-        if activity.video_ids:
+        if activity.related_videos:
+            # Use first related video as main video
+            first_video = activity.related_videos[0]
+            video_url = first_video.get('fileUrl', '')
+        elif activity.video_ids:
+            # Fallback to legacy video references
             videos = firestore_service.get_videos_by_ids(activity.video_ids[:1])
             if videos:
                 video = FirestoreVideo.from_dict(videos[0])
                 video_url = video.get_streaming_url(expiration_minutes=120)
 
-        # Get teacher resources
+        # Get teacher resources from direct uploads or legacy references
         teacher_resources = []
-        if activity.teacher_resource_ids:
+        if activity.teacher_resources:
+            # Use direct upload resources (new CMS structure)
+            for res in activity.teacher_resources:
+                teacher_resources.append({
+                    'title': res.get('title', 'Untitled'),
+                    'caption': res.get('caption', ''),
+                    'type': res.get('type', 'pdf'),
+                    'file_url': get_storage_url(res.get('fileUrl', '')),
+                })
+        elif activity.teacher_resource_ids:
+            # Fallback to legacy resource references
             resources_data = firestore_service.get_resources_by_ids(activity.teacher_resource_ids)
             for res_data in resources_data:
                 resource = FirestoreResource.from_dict(res_data)
                 teacher_resources.append({
-                    'resource': resource,
-                    'download_url': f'/download/resource/{resource.id}/'
+                    'title': resource.title,
+                    'caption': resource.caption,
+                    'type': resource.file_type,
+                    'file_url': resource.file_url,
                 })
 
-        # Get student resources
+        # Get student resources from direct uploads or legacy references
         student_resources = []
-        if activity.student_resource_ids:
+        if activity.student_resources:
+            # Use direct upload resources (new CMS structure)
+            for res in activity.student_resources:
+                student_resources.append({
+                    'title': res.get('title', 'Untitled'),
+                    'caption': res.get('caption', ''),
+                    'type': res.get('type', 'pdf'),
+                    'file_url': get_storage_url(res.get('fileUrl', '')),
+                })
+        elif activity.student_resource_ids:
+            # Fallback to legacy resource references
             resources_data = firestore_service.get_resources_by_ids(activity.student_resource_ids)
             for res_data in resources_data:
                 resource = FirestoreResource.from_dict(res_data)
                 student_resources.append({
-                    'resource': resource,
-                    'download_url': f'/download/resource/{resource.id}/'
+                    'title': resource.title,
+                    'caption': resource.caption,
+                    'type': resource.file_type,
+                    'file_url': resource.file_url,
                 })
 
         # Get related activities (same grade)
@@ -195,6 +251,7 @@ def activity_detail(request, slug):
             grade=activity.grade
         ).exclude(id=activity.id).order_by('order', 'activity_number')[:3]
 
+    # Build context with all activity data
     context = {
         'activity': activity,
         'video_url': video_url,
@@ -202,6 +259,25 @@ def activity_detail(request, slug):
         'student_resources': student_resources,
         'related_activities': related_activities,
     }
+
+    # Add new fields from Firestore adapter (if available)
+    if getattr(settings, 'USE_FIRESTORE', False):
+        # Transform related_videos URLs
+        transformed_videos = []
+        for video in (activity.related_videos or []):
+            transformed_videos.append({
+                'title': video.get('title', ''),
+                'fileUrl': get_storage_url(video.get('fileUrl', '')),
+                'thumbnailUrl': get_storage_url(video.get('thumbnailUrl', '')),
+                'duration': video.get('duration', 0),
+                'type': video.get('type', ''),
+                'caption': video.get('caption', ''),
+            })
+        context['related_videos'] = transformed_videos
+        context['lesson_pdf_url'] = get_storage_url(activity.lesson_pdf or '')
+        context['estimated_time'] = activity.estimated_time or 0
+        context['lesson_overview'] = activity.lesson_overview or []
+
     return render(request, 'activity_detail.html', context)
 
 

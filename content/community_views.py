@@ -335,6 +335,62 @@ def delete_comment(request, comment_id):
 
 
 @login_required
+@require_POST
+def flag_post(request, post_id):
+    """
+    Flag a post as inappropriate for moderator review
+    Teachers can flag posts, admins will see them in CMS
+    """
+    try:
+        post = get_object_or_404(ForumPost, id=post_id)
+
+        # Don't allow flagging own posts
+        if post.author == request.user:
+            return JsonResponse({
+                'success': False,
+                'message': 'You cannot flag your own post'
+            }, status=400)
+
+        reason = request.POST.get('reason', '').strip()
+        if not reason:
+            return JsonResponse({
+                'success': False,
+                'message': 'Please provide a reason for flagging'
+            }, status=400)
+
+        logger.info(f"Post {post_id} flagged by {request.user.username}: {reason}")
+
+        # Sync flag to Firestore for CMS moderation
+        try:
+            from content.firestore_service import update_community_post
+            update_community_post(str(post_id), {
+                'isFlagged': True,
+                'flagReason': reason,
+                'flaggedAt': timezone.now().isoformat(),
+                'flaggedBy': request.user.firebase_uid,
+                'status': 'flagged'
+            })
+        except Exception as e:
+            logger.error(f"Failed to sync flag to Firestore: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': 'Failed to submit flag. Please try again.'
+            }, status=500)
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Thank you for reporting. Our moderators will review this post.'
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to flag post: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Failed to flag post: {str(e)}'
+        }, status=500)
+
+
+@login_required
 @require_http_methods(["GET", "POST"])
 def edit_post(request, post_id):
     """

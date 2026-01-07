@@ -130,6 +130,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'content.context_processors.menu_context',
+                'content.context_processors.site_config_context',
             ],
         },
     },
@@ -160,12 +162,16 @@ if REDIS_URL and not DEBUG:
         }
     }
 else:
-    # Use dummy cache for local development (no Redis required)
+    # Use local memory cache for development (works without Redis)
     CACHES = {
         'default': {
-            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
         }
     }
+
+# Taxonomy cache TTL in seconds (5 minutes)
+TAXONOMY_CACHE_TTL = config('TAXONOMY_CACHE_TTL', default=300, cast=int)
 
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'

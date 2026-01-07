@@ -3,245 +3,296 @@
 {% block title %}{{ activity.title }} - Fraction Ball{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
     <!-- Breadcrumb -->
-    <nav class="mb-6 text-sm">
+    <nav class="mb-4 text-sm">
         <ol class="flex items-center space-x-2 text-gray-500">
             <li><a href="/" class="hover:text-gray-700">Home</a></li>
             <li><span class="mx-2">/</span></li>
             <li><a href="/?grade={{ activity.grade }}" class="hover:text-gray-700">Grade {{ activity.grade }}</a></li>
             <li><span class="mx-2">/</span></li>
-            <li class="text-gray-900 font-medium">{{ activity.title }}</li>
+            <li class="text-gray-900 font-medium">Activity {{ activity.activity_number }}</li>
         </ol>
     </nav>
-    
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Main Content -->
-        <div class="lg:col-span-2">
-            <!-- Activity Title -->
-            <div class="mb-8">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm font-semibold px-3 py-1 bg-blue-100 text-blue-800 rounded-full">Activity {{ activity.activity_number }}</span>
-                        <span class="text-sm font-semibold px-3 py-1 bg-gray-100 text-gray-800 rounded-full">Grade {{ activity.grade }}</span>
-                        <span class="text-sm font-semibold px-3 py-1 bg-green-100 text-green-800 rounded-full">{{ activity.get_location_display }}</span>
+
+    <!-- Activity Title with Location Badge -->
+    <div class="flex items-start justify-between mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">Activity {{ activity.activity_number }}: {{ activity.title }}</h1>
+        <div class="flex items-center gap-2">
+            <span class="text-sm px-3 py-1 bg-gray-100 text-gray-700 rounded border">
+                This activity will take place {{ activity.get_location_display|lower }}
+            </span>
+            <button class="p-2 border rounded hover:bg-gray-50">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Top Section: Prerequisites + Related Videos -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+        <!-- Prerequisites -->
+        <div class="bg-white border border-gray-200 rounded-lg p-4">
+            <h2 class="text-sm font-bold text-gray-900 uppercase mb-3">Prerequisites</h2>
+            <ul class="space-y-2 text-sm">
+                {% if activity.prerequisites %}
+                    {% for prereq in activity.prerequisites %}
+                    <li class="text-blue-600 hover:underline cursor-pointer">{{ prereq }}</li>
+                    {% endfor %}
+                {% else %}
+                    <li class="text-gray-400">No prerequisites</li>
+                {% endif %}
+            </ul>
+        </div>
+
+        <!-- Related Videos Carousel -->
+        <div class="lg:col-span-3 bg-white border border-gray-200 rounded-lg p-4">
+            <h2 class="text-sm font-bold text-gray-900 uppercase mb-3">Related Videos</h2>
+            <div class="flex gap-4 overflow-x-auto pb-2">
+                {% if related_videos %}
+                    {% for video in related_videos %}
+                    <div class="flex-shrink-0 w-40 cursor-pointer group" onclick="playVideo('{{ video.fileUrl }}')">
+                        <div class="relative bg-gray-200 rounded-lg overflow-hidden aspect-video mb-2">
+                            {% if video.thumbnailUrl %}
+                            <img src="{{ video.thumbnailUrl }}" alt="{{ video.title }}" class="w-full h-full object-cover">
+                            {% else %}
+                            <div class="w-full h-full flex items-center justify-center bg-gray-300">
+                                <svg class="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                            </div>
+                            {% endif %}
+                            {% if video.duration %}
+                            <span class="absolute bottom-1 right-1 bg-black bg-opacity-75 text-white text-xs px-1 rounded">
+                                {{ video.duration|floatformat:0 }}s
+                            </span>
+                            {% endif %}
+                            <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
+                                <svg class="w-10 h-10 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-700 truncate">{{ video.title }}</p>
                     </div>
-                    {% if user.is_authenticated and activity.video_asset %}
-                    <button onclick="showAddToPlaylistModal()" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-gray-400 text-sm">No related videos yet</p>
+                {% endif %}
+                <!-- Scroll indicator -->
+                {% if related_videos|length > 4 %}
+                <button class="flex-shrink-0 w-10 h-full flex items-center justify-center bg-gray-100 rounded-lg hover:bg-gray-200">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content: PDF Viewer + Resources Sidebar -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <!-- PDF Viewer / Lesson Content -->
+        <div class="lg:col-span-3">
+            {% if lesson_pdf_url %}
+            <!-- PDF Embed -->
+            <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div class="bg-gray-100 px-4 py-2 border-b flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-medium text-red-600">Activity {{ activity.activity_number }}: {{ activity.location|upper }}</span>
+                        <span class="text-sm text-gray-500">
+                            {% if estimated_time %}Estimated time: {{ estimated_time }} minutes{% endif %}
+                        </span>
+                    </div>
+                    <a href="{{ lesson_pdf_url }}" target="_blank" class="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                         </svg>
-                        Add to Playlist
-                    </button>
+                        Open in new tab
+                    </a>
+                </div>
+                <iframe
+                    src="https://docs.google.com/viewer?url={{ lesson_pdf_url|urlencode }}&embedded=true"
+                    class="w-full border-0"
+                    style="height: 800px;"
+                    title="Lesson Plan PDF"
+                    frameborder="0"
+                ></iframe>
+            </div>
+            {% else %}
+            <!-- Fallback: Display structured content -->
+            <div class="bg-white border border-gray-200 rounded-lg p-6">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-4 pb-4 border-b">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                            <span class="text-red-600 text-xl">{{ activity.activity_number }}</span>
+                        </div>
+                        <div>
+                            <span class="text-sm font-semibold px-2 py-1 bg-blue-100 text-blue-800 rounded">Activity {{ activity.activity_number }}: {{ activity.location|upper }}</span>
+                        </div>
+                    </div>
+                    {% if estimated_time %}
+                    <span class="text-sm text-gray-500">Estimated time: {{ estimated_time }} minutes</span>
                     {% endif %}
                 </div>
-                <h1 class="text-4xl font-bold text-gray-900 mb-3">{{ activity.title }}</h1>
-                <div class="w-16 h-1 bg-red-600 mb-4"></div>
-                <p class="text-lg text-gray-600">{{ activity.description }}</p>
-            </div>
-            
-            <!-- Video Player (if available) -->
-            {% if video_url %}
-            <div class="mb-8">
-                <h2 class="text-2xl font-bold text-gray-900 mb-4">Instructional Video</h2>
-                <div class="bg-black rounded-lg overflow-hidden aspect-video">
-                    <video controls class="w-full h-full" controlsList="nodownload">
-                        <source src="{{ video_url }}" type="video/mp4">
-                        Your browser does not support the video tag.
-                    </video>
+
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">{{ activity.title }}</h2>
+
+                <!-- Learning Objectives -->
+                {% if activity.learning_objectives %}
+                <div class="mb-6">
+                    <h3 class="text-lg font-bold text-gray-900 mb-3 underline">Learning Objectives</h3>
+                    <p class="text-sm text-gray-700 mb-2">Students will be able to:</p>
+                    <ul class="list-disc list-inside space-y-2 text-sm text-gray-700">
+                        {% for objective in activity.learning_objectives %}
+                        <li>{{ objective }}</li>
+                        {% endfor %}
+                    </ul>
                 </div>
-            </div>
-            {% endif %}
-            
-            <!-- Topics -->
-            {% if activity.topics %}
-            <div class="mb-8">
-                <h2 class="text-xl font-bold text-gray-900 mb-3">Topics Covered</h2>
-                <div class="flex flex-wrap gap-2">
-                    {% for topic in activity.topics %}
-                    <span class="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">{{ topic }}</span>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-            
-            <!-- Prerequisites -->
-            {% if activity.prerequisites %}
-            <div class="mb-8">
-                <h2 class="text-2xl font-bold text-gray-900 mb-4">Prerequisites</h2>
-                <ul class="list-disc list-inside space-y-2 text-gray-700 bg-gray-50 rounded-lg p-6 border border-gray-200">
-                    {% for prereq in activity.prerequisites %}
-                    <li>{{ prereq }}</li>
-                    {% endfor %}
-                </ul>
-            </div>
-            {% endif %}
-            
-            <!-- Learning Objectives -->
-            {% if activity.learning_objectives %}
-            <div class="mb-8">
-                <h2 class="text-xl font-bold text-gray-900 mb-4">Learning Objectives</h2>
-                <div class="bg-blue-50 rounded-lg p-6 border border-blue-200">
-                    <div class="prose prose-sm max-w-none text-gray-700">
-                        {{ activity.learning_objectives|linebreaks }}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            
-            <!-- Materials and Key Terms -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <!-- Materials -->
-                {% if activity.materials %}
-                <div class="bg-white rounded-lg border border-gray-200 p-6">
-                    <h3 class="text-lg font-bold text-gray-900 mb-4">Materials</h3>
-                    <ul class="space-y-2 text-gray-700 text-sm">
-                        {% for material in activity.materials %}
-                        <li class="flex items-start">
-                            <span class="mr-2">•</span>
-                            <span>{{ material }}</span>
+                {% endif %}
+
+                <!-- Lesson Overview -->
+                {% if lesson_overview %}
+                <div class="mb-6">
+                    <h3 class="text-lg font-bold text-gray-900 mb-3 underline">Lesson Overview:</h3>
+                    <ul class="space-y-2 text-sm text-gray-700">
+                        {% for part in lesson_overview %}
+                        <li>
+                            <strong>Part {{ part.partNumber }}:</strong> {{ part.description }}
                         </li>
                         {% endfor %}
                     </ul>
                 </div>
                 {% endif %}
-                
-                <!-- Key Terms -->
-                {% if activity.key_terms %}
-                <div class="bg-white rounded-lg border border-gray-200 p-6">
-                    <h3 class="text-lg font-bold text-gray-900 mb-4">Key Terms</h3>
-                    <dl class="space-y-3 text-sm">
-                        {% for term, definition in activity.key_terms.items %}
-                        <div>
-                            <dt class="font-bold text-gray-900">{{ term }}</dt>
-                            <dd class="text-gray-700 ml-4">{{ definition }}</dd>
-                        </div>
+
+                <!-- Materials and Key Terms -->
+                <div class="grid grid-cols-2 gap-6 mb-6">
+                    {% if activity.materials %}
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-3 underline">Materials:</h3>
+                        <ul class="list-disc list-inside space-y-1 text-sm text-gray-700">
+                            {% for material in activity.materials %}
+                            <li>{{ material }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    {% if activity.key_terms %}
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-3 underline">Key Terms:</h3>
+                        <ul class="list-disc list-inside space-y-1 text-sm text-gray-700">
+                            {% for term, definition in activity.key_terms.items %}
+                            <li><strong>{{ term }}</strong>{% if definition %} - {{ definition }}{% endif %}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Game Rules -->
+                {% if activity.game_rules %}
+                <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                    <h3 class="text-lg font-bold text-red-800 mb-3 text-center underline">Game Rules</h3>
+                    <ul class="space-y-2 text-sm text-gray-700">
+                        {% for rule in activity.game_rules %}
+                        <li class="flex items-start">
+                            <span class="mr-2 font-bold">{{ forloop.counter }}.</span>
+                            <span>{{ rule }}</span>
+                        </li>
                         {% endfor %}
-                    </dl>
+                    </ul>
                 </div>
                 {% endif %}
-            </div>
-            
-            <!-- Game Rules -->
-            {% if activity.game_rules %}
-            <div class="bg-red-50 rounded-lg border-2 border-red-200 p-6 mb-8">
-                <h2 class="text-xl font-bold text-gray-900 mb-4">🎮 Game Rules</h2>
-                <ul class="space-y-3 text-gray-700">
-                    {% for rule in activity.game_rules %}
-                    <li class="flex items-start">
-                        <span class="mr-3 mt-1 flex-shrink-0 w-6 h-6 rounded-full bg-red-600 text-white text-xs flex items-center justify-center font-bold">{{ forloop.counter }}</span>
-                        <span>{{ rule }}</span>
-                    </li>
-                    {% endfor %}
-                </ul>
             </div>
             {% endif %}
-            
-            <!-- Encouragement Tips -->
-            <div class="bg-yellow-50 rounded-lg border border-yellow-200 p-6">
-                <h3 class="text-lg font-bold text-gray-900 mb-3">💡 Teaching Tips</h3>
-                <ul class="space-y-2 text-gray-700 text-sm">
-                    <li>• Celebrate effort and improvement, not just successful outcomes</li>
-                    <li>• Highlight examples of good teamwork and collaboration</li>
-                    <li>• Remind students that everyone learns at their own pace</li>
-                    <li>• Encourage students to help and support each other</li>
-                </ul>
-            </div>
         </div>
-        
+
         <!-- Resources Sidebar -->
         <div class="lg:col-span-1">
-            <div class="sticky top-8">
-                <h2 class="text-2xl font-bold text-gray-900 mb-6">Resources</h2>
-                
-                <!-- For Teachers -->
-                <div class="mb-6">
-                    <h3 class="text-sm font-bold text-gray-700 uppercase mb-3">For Teachers</h3>
-                    <div class="space-y-3">
-                        {% if teacher_resources %}
-                            {% for item in teacher_resources %}
-                            <a href="{{ item.download_url }}" target="_blank" class="block bg-white border border-gray-200 rounded-lg p-4 hover:border-red-300 hover:bg-red-50 transition-colors group">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex-1 mr-3">
-                                        <span class="text-sm font-medium text-gray-900 group-hover:text-red-700">{{ item.resource.title }}</span>
-                                        <p class="text-xs text-gray-500 mt-1">{{ item.resource.get_file_type_display }} · {{ item.resource.file_size_formatted }}</p>
+            <div class="sticky top-4">
+                <div class="bg-white border border-gray-200 rounded-lg p-4">
+                    <h2 class="text-lg font-bold text-gray-900 mb-4">Resources</h2>
+
+                    <!-- For Teachers -->
+                    <div class="mb-6">
+                        <h3 class="text-sm font-bold text-gray-700 uppercase mb-3">For Teachers</h3>
+                        <div class="space-y-2">
+                            {% if teacher_resources %}
+                                {% for res in teacher_resources %}
+                                <a href="{{ res.file_url }}" target="_blank" class="block bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-red-50 hover:border-red-200 transition-colors group">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex-1 min-w-0">
+                                            <span class="text-xs font-medium px-2 py-0.5 bg-gray-200 text-gray-600 rounded uppercase">.{{ res.type|upper }}</span>
+                                            <p class="text-sm font-medium text-gray-900 mt-1 truncate">{{ res.title }}</p>
+                                        </div>
+                                        <svg class="w-5 h-5 text-gray-400 group-hover:text-red-600 flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
                                     </div>
-                                    <svg class="w-5 h-5 text-gray-600 group-hover:text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                    </svg>
-                                </div>
+                                </a>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-sm text-gray-400 italic">No teacher resources</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- For Students -->
+                    <div class="mb-6">
+                        <h3 class="text-sm font-bold text-gray-700 uppercase mb-3">For Students</h3>
+                        <div class="space-y-2">
+                            {% if student_resources %}
+                                {% for res in student_resources %}
+                                <a href="{{ res.file_url }}" target="_blank" class="block bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-blue-50 hover:border-blue-200 transition-colors group">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex-1 min-w-0">
+                                            <span class="text-xs font-medium px-2 py-0.5 bg-gray-200 text-gray-600 rounded uppercase">.{{ res.type|upper }}</span>
+                                            <p class="text-sm font-medium text-gray-900 mt-1 truncate">{{ res.title }}</p>
+                                        </div>
+                                        <svg class="w-5 h-5 text-gray-400 group-hover:text-blue-600 flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                    </div>
+                                </a>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-sm text-gray-400 italic">No student resources</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Related Activities -->
+                    {% if related_activities %}
+                    <div class="pt-4 border-t">
+                        <h3 class="text-sm font-bold text-gray-700 uppercase mb-3">Related Activities</h3>
+                        <div class="space-y-2">
+                            {% for related in related_activities %}
+                            <a href="/activities/{{ related.slug }}/" class="block text-sm text-blue-600 hover:underline">
+                                {{ related.title }}
                             </a>
                             {% endfor %}
-                        {% else %}
-                            <div class="block bg-white border border-gray-200 rounded-lg p-4">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-sm font-medium text-gray-400">No resources yet</span>
-                                    <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                    </svg>
-                                </div>
-                            </div>
-                        {% endif %}
+                        </div>
                     </div>
+                    {% endif %}
                 </div>
-                
-                <!-- For Students -->
-                <div class="mb-6">
-                    <h3 class="text-sm font-bold text-gray-700 uppercase mb-3">For Students</h3>
-                    <div class="space-y-3">
-                        {% if student_resources %}
-                            {% for item in student_resources %}
-                            <a href="{{ item.download_url }}" target="_blank" class="block bg-white border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:bg-blue-50 transition-colors group">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex-1 mr-3">
-                                        <span class="text-sm font-medium text-gray-900 group-hover:text-blue-700">{{ item.resource.title }}</span>
-                                        <p class="text-xs text-gray-500 mt-1">{{ item.resource.get_file_type_display }} · {{ item.resource.file_size_formatted }}</p>
-                                    </div>
-                                    <svg class="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                    </svg>
-                                </div>
-                            </a>
-                            {% endfor %}
-                        {% else %}
-                            <div class="block bg-white border border-gray-200 rounded-lg p-4">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-sm font-medium text-gray-400">No resources yet</span>
-                                    <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                    </svg>
-                                </div>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <!-- Related Activities -->
-                {% if related_activities %}
-                <div>
-                    <h3 class="text-sm font-bold text-gray-700 uppercase mb-3">Related Activities</h3>
-                    <div class="space-y-3">
-                        {% for related in related_activities %}
-                        <a href="/activities/{{ related.slug }}/" class="block bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-gray-100 transition-colors group">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <span class="text-sm font-medium text-gray-900 group-hover:text-red-700">{{ related.title }}</span>
-                                    <p class="text-xs text-gray-500 mt-1">Activity {{ related.activity_number }}</p>
-                                </div>
-                                <svg class="w-4 h-4 text-gray-400 group-hover:text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                </svg>
-                            </div>
-                        </a>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-                
-                <!-- Back to Activities -->
-                <div class="mt-6">
-                    <a href="/" class="block w-full text-center px-4 py-3 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors">
-                        ← Back to All Activities
+
+                <!-- Navigation -->
+                <div class="mt-4 flex gap-2">
+                    <a href="/" class="flex-1 text-center px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors text-sm">
+                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                        Back
+                    </a>
+                    <a href="#" class="flex-1 text-center px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors text-sm">
+                        Next
+                        <svg class="w-4 h-4 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
                     </a>
                 </div>
             </div>
@@ -249,169 +300,54 @@
     </div>
 </div>
 
-<!-- Add to Playlist Modal -->
-{% if user.is_authenticated and activity.video_asset %}
-<div id="playlistModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-medium text-gray-900">Add to Playlist</h3>
-            <button onclick="closePlaylistModal()" class="text-gray-400 hover:text-gray-600">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-            </button>
-        </div>
-        
-        <!-- Existing Playlists -->
-        <div id="playlistsList" class="mb-4 max-h-60 overflow-y-auto">
-            <p class="text-sm text-gray-600 mb-2">Select a playlist:</p>
-            <div id="playlistsContainer" class="space-y-2">
-                <!-- Playlists will be loaded here -->
-            </div>
-        </div>
-        
-        <!-- Create New Playlist -->
-        <div class="pt-4 border-t border-gray-200">
-            <p class="text-sm text-gray-600 mb-2">Or create a new playlist:</p>
-            <div class="flex space-x-2">
-                <input 
-                    type="text" 
-                    id="newPlaylistName" 
-                    placeholder="Playlist name..." 
-                    class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                <button 
-                    onclick="addToNewPlaylist()" 
-                    class="px-4 py-2 bg-purple-600 text-white font-medium rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                    Create & Add
-                </button>
-            </div>
+<!-- Video Player Modal -->
+<div id="videoModal" class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center">
+    <div class="relative w-full max-w-4xl mx-4">
+        <button onclick="closeVideoModal()" class="absolute -top-10 right-0 text-white hover:text-gray-300">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+        <div class="bg-black rounded-lg overflow-hidden aspect-video">
+            <video id="modalVideo" controls class="w-full h-full" controlsList="nodownload">
+                <source src="" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
         </div>
     </div>
 </div>
 
 <script>
-const activityId = '{{ activity.id }}';
+function playVideo(url) {
+    if (!url) return;
+    const modal = document.getElementById('videoModal');
+    const video = document.getElementById('modalVideo');
+    video.querySelector('source').src = url;
+    video.load();
+    modal.classList.remove('hidden');
+    video.play();
+}
 
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
+function closeVideoModal() {
+    const modal = document.getElementById('videoModal');
+    const video = document.getElementById('modalVideo');
+    video.pause();
+    modal.classList.add('hidden');
+}
+
+// Close modal on escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeVideoModal();
     }
-    return cookieValue;
-}
-
-const csrftoken = getCookie('csrftoken');
-
-function showAddToPlaylistModal() {
-    // Load user's playlists
-    fetch('/playlists/json/')
-        .then(response => response.json())
-        .then(data => {
-            const container = document.getElementById('playlistsContainer');
-            if (data.playlists.length === 0) {
-                container.innerHTML = '<p class="text-sm text-gray-500 italic">No playlists yet. Create one below!</p>';
-            } else {
-                container.innerHTML = data.playlists.map(playlist => `
-                    <button 
-                        onclick="addToExistingPlaylist('${playlist.id}')"
-                        class="w-full text-left px-3 py-2 bg-gray-50 hover:bg-purple-50 border border-gray-200 rounded-md transition-colors"
-                    >
-                        <div class="font-medium text-gray-900">${playlist.name}</div>
-                        ${playlist.description ? `<div class="text-xs text-gray-600 truncate">${playlist.description}</div>` : ''}
-                    </button>
-                `).join('');
-            }
-            document.getElementById('playlistModal').classList.remove('hidden');
-        })
-        .catch(error => {
-            console.error('Error loading playlists:', error);
-            alert('Failed to load playlists');
-        });
-}
-
-function closePlaylistModal() {
-    document.getElementById('playlistModal').classList.add('hidden');
-}
-
-function addToExistingPlaylist(playlistId) {
-    const formData = new FormData();
-    formData.append('activity_id', activityId);
-    formData.append('playlist_id', playlistId);
-    formData.append('create_new', 'false');
-    
-    fetch('/playlists/add/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': csrftoken,
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(data.message);
-            closePlaylistModal();
-        } else {
-            alert('Error: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Failed to add to playlist');
-    });
-}
-
-function addToNewPlaylist() {
-    const playlistName = document.getElementById('newPlaylistName').value.trim();
-    if (!playlistName) {
-        alert('Please enter a playlist name');
-        return;
-    }
-    
-    const formData = new FormData();
-    formData.append('activity_id', activityId);
-    formData.append('new_playlist_name', playlistName);
-    formData.append('create_new', 'true');
-    
-    fetch('/playlists/add/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': csrftoken,
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(data.message);
-            closePlaylistModal();
-            document.getElementById('newPlaylistName').value = '';
-        } else {
-            alert('Error: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Failed to create playlist');
-    });
-}
+});
 
 // Close modal when clicking outside
-document.getElementById('playlistModal').addEventListener('click', function(e) {
+document.getElementById('videoModal').addEventListener('click', function(e) {
     if (e.target === this) {
-        closePlaylistModal();
+        closeVideoModal();
     }
 });
 </script>
-{% endif %}
 
 {% endblock %}

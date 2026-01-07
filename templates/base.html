@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -42,26 +43,34 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16 sm:h-20">
                 <!-- Logo and Brand -->
-                <a href="/" class="flex items-center space-x-2">
-                    <svg class="w-8 h-8 sm:w-10 sm:h-10 text-red-500" viewBox="0 0 40 40" fill="currentColor">
-                        <circle cx="20" cy="20" r="18" fill="#EF4444"/>
-                        <path d="M20 8 L32 20 L20 32 L8 20 Z" fill="white"/>
-                    </svg>
-                    <div class="hidden sm:block">
-                        <span class="block text-lg sm:text-xl font-bold text-gray-900 leading-tight">fraction</span>
-                        <span class="block text-lg sm:text-xl font-bold text-red-600 leading-tight">ball</span>
-                    </div>
+                <a href="/" class="flex items-center">
+                    <img src="{% static 'img/logo.png' %}" alt="Fraction Ball" class="h-10 sm:h-12 w-auto">
                 </a>
                 
-                <!-- Center Navigation (Desktop) -->
+                <!-- Center Navigation (Desktop) - Dynamic from CMS -->
                 <div class="hidden lg:flex items-center space-x-6">
-                    <a href="/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">HOME</a>
-                    <a href="/community/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">COMMUNITY</a>
-                    <a href="/faq/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">FAQ</a>
+                    {% for item in header_menu %}
+                    <div class="relative group">
+                        <a href="{{ item.url }}" {% if item.openInNewTab %}target="_blank" rel="noopener"{% endif %}
+                           class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors uppercase">
+                            {{ item.label }}
+                        </a>
+                        {% if item.children %}
+                        <div class="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 hidden group-hover:block z-20">
+                            {% for child in item.children %}
+                            <a href="{{ child.url }}" {% if child.openInNewTab %}target="_blank" rel="noopener"{% endif %}
+                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                {{ child.label }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
                     {% if user.is_authenticated %}
-                    <a href="/playlists/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">PLAYLISTS</a>
-                    <a href="/upload/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">UPLOAD</a>
-                    <a href="/analytics/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">ANALYTICS</a>
+                    <a href="/playlists/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors uppercase">PLAYLISTS</a>
+                    <a href="/upload/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors uppercase">UPLOAD</a>
+                    <a href="/analytics/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors uppercase">ANALYTICS</a>
                     {% endif %}
                 </div>
                 
@@ -139,12 +148,23 @@
             </div>
         </div>
         
-        <!-- Mobile Navigation Menu -->
+        <!-- Mobile Navigation Menu - Dynamic from CMS -->
         <div id="mobileMenu" class="hidden lg:hidden border-t border-gray-200">
             <div class="px-4 py-3 space-y-1">
-                <a href="/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">Home</a>
-                <a href="/community/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">Community</a>
-                <a href="/faq/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">FAQ</a>
+                {% for item in header_menu %}
+                <a href="{{ item.url }}" {% if item.openInNewTab %}target="_blank" rel="noopener"{% endif %}
+                   class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">
+                    {{ item.label }}
+                </a>
+                {% if item.children %}
+                {% for child in item.children %}
+                <a href="{{ child.url }}" {% if child.openInNewTab %}target="_blank" rel="noopener"{% endif %}
+                   class="block px-6 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg">
+                    {{ child.label }}
+                </a>
+                {% endfor %}
+                {% endif %}
+                {% endfor %}
                 {% if user.is_authenticated %}
                 <div class="border-t border-gray-200 my-2"></div>
                 <a href="/playlists/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">My Playlists</a>
@@ -239,11 +259,21 @@
         {% endblock %}
     </main>
 
-    <!-- Footer -->
+    <!-- Footer - Dynamic from CMS -->
     <footer class="bg-white border-t border-gray-200 mt-16">
-        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+            {% if footer_menu %}
+            <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-4">
+                {% for item in footer_menu %}
+                <a href="{{ item.url }}" {% if item.openInNewTab %}target="_blank" rel="noopener"{% endif %}
+                   class="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                    {{ item.label }}
+                </a>
+                {% endfor %}
+            </div>
+            {% endif %}
             <p class="text-center text-sm text-gray-500">
-                © 2025 Fraction Ball. Built with ❤️ for math education.
+                © 2025 {{ site_name|default:"Fraction Ball" }}. Built with love for math education.
             </p>
         </div>
     </footer>

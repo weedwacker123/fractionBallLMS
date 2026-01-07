@@ -3,7 +3,8 @@ Django filters for content models
 """
 import django_filters
 from django.db import models
-from .models import VideoAsset, Resource, GRADE_CHOICES, TOPIC_CHOICES
+from .models import VideoAsset, Resource
+from . import taxonomy_service
 
 
 class VideoAssetFilter(django_filters.FilterSet):
@@ -12,9 +13,9 @@ class VideoAssetFilter(django_filters.FilterSet):
     # Text search across title and description
     search = django_filters.CharFilter(method='filter_search', label='Search')
     
-    # Taxonomy filters
-    grade = django_filters.ChoiceFilter(choices=GRADE_CHOICES, empty_label="All Grades")
-    topic = django_filters.ChoiceFilter(choices=TOPIC_CHOICES, empty_label="All Topics")
+    # Taxonomy filters - choices set dynamically in __init__
+    grade = django_filters.ChoiceFilter(choices=[], empty_label="All Grades")
+    topic = django_filters.ChoiceFilter(choices=[], empty_label="All Topics")
     
     # Tag filtering (JSON field)
     tags = django_filters.CharFilter(method='filter_tags', label='Tags')
@@ -63,7 +64,11 @@ class VideoAssetFilter(django_filters.FilterSet):
         # Get the request to scope owner choices to current school
         request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
-        
+
+        # Set dynamic taxonomy choices from CMS (cached)
+        self.filters['grade'].extra['choices'] = taxonomy_service.get_grade_choices()
+        self.filters['topic'].extra['choices'] = taxonomy_service.get_topic_choices()
+
         if request and hasattr(request.user, 'school'):
             from django.contrib.auth import get_user_model
             User = get_user_model()
@@ -132,9 +137,9 @@ class ResourceFilter(django_filters.FilterSet):
         empty_label="All File Types"
     )
     
-    # Taxonomy filters (optional for resources)
-    grade = django_filters.ChoiceFilter(choices=GRADE_CHOICES, empty_label="All Grades")
-    topic = django_filters.ChoiceFilter(choices=TOPIC_CHOICES, empty_label="All Topics")
+    # Taxonomy filters (optional for resources) - choices set dynamically in __init__
+    grade = django_filters.ChoiceFilter(choices=[], empty_label="All Grades")
+    topic = django_filters.ChoiceFilter(choices=[], empty_label="All Topics")
     
     # Tag filtering
     tags = django_filters.CharFilter(method='filter_tags', label='Tags')
@@ -176,7 +181,11 @@ class ResourceFilter(django_filters.FilterSet):
     def __init__(self, *args, **kwargs):
         request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
-        
+
+        # Set dynamic taxonomy choices from CMS (cached)
+        self.filters['grade'].extra['choices'] = taxonomy_service.get_grade_choices()
+        self.filters['topic'].extra['choices'] = taxonomy_service.get_topic_choices()
+
         if request and hasattr(request.user, 'school'):
             from django.contrib.auth import get_user_model
             User = get_user_model()
@@ -184,12 +193,12 @@ class ResourceFilter(django_filters.FilterSet):
                 school=request.user.school,
                 role__in=['TEACHER', 'SCHOOL_ADMIN']
             ).order_by('last_name', 'first_name')
-    
+
     def filter_search(self, queryset, name, value):
         """Filter by search term in title and description"""
         if not value:
             return queryset
-        
+
         try:
             from django.contrib.postgres.search import SearchVector
             return queryset.annotate(
@@ -197,10 +206,10 @@ class ResourceFilter(django_filters.FilterSet):
             ).filter(search=value)
         except ImportError:
             return queryset.filter(
-                models.Q(title__icontains=value) | 
+                models.Q(title__icontains=value) |
                 models.Q(description__icontains=value)
             )
-    
+
     def filter_tags(self, queryset, name, value):
         """Filter by tags (JSON field)"""
         if not value:
