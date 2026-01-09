@@ -11,8 +11,8 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# Cache TTL in seconds (30 minutes for config)
-CONFIG_CACHE_TTL = getattr(settings, 'CONFIG_CACHE_TTL', 1800)
+# Cache TTL in seconds (30 seconds for quick CMS updates)
+CONFIG_CACHE_TTL = getattr(settings, 'CONFIG_CACHE_TTL', 30)
 
 # Fallback configuration values
 FALLBACK_CONFIG = {

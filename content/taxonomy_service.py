@@ -11,8 +11,8 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# Cache TTL in seconds (5 minutes)
-TAXONOMY_CACHE_TTL = getattr(settings, 'TAXONOMY_CACHE_TTL', 300)
+# Cache TTL in seconds (30 seconds for quick CMS updates)
+TAXONOMY_CACHE_TTL = getattr(settings, 'TAXONOMY_CACHE_TTL', 30)
 
 # Fallback values if Firestore is unavailable and cache is empty
 FALLBACK_GRADES = [

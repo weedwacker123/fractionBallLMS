@@ -10,8 +10,8 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# Cache TTL in seconds (10 minutes for menus)
-MENU_CACHE_TTL = getattr(settings, 'MENU_CACHE_TTL', 600)
+# Cache TTL in seconds (30 seconds for quick CMS updates)
+MENU_CACHE_TTL = getattr(settings, 'MENU_CACHE_TTL', 30)
 
 
 def _get_firestore_client():
