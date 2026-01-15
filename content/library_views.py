@@ -11,7 +11,7 @@ from django.db import models
 from django.db.models import Count, Q, Avg
 from django.utils import timezone
 from datetime import datetime, timedelta
-from accounts.permissions import IsTeacher
+from accounts.permissions import IsRegisteredUser
 from .models import VideoAsset, Resource, Playlist
 from .serializers import VideoAssetSerializer, ResourceSerializer, PlaylistSerializer
 from .filters import VideoAssetFilter, ResourceFilter
@@ -34,7 +34,7 @@ class LibraryVideoListView(generics.ListAPIView):
     GET /api/library/videos/
     """
     serializer_class = VideoAssetSerializer
-    permission_classes = [IsTeacher]
+    permission_classes = [IsRegisteredUser]
     pagination_class = LibraryPagination
     filter_backends = [DjangoFilterBackend]
     filterset_class = VideoAssetFilter
@@ -49,7 +49,7 @@ class LibraryVideoListView(generics.ListAPIView):
         )
         
         # Non-owners can only see published videos (unless they're admins)
-        if not (self.request.user.is_admin or self.request.user.is_school_admin):
+        if not (self.request.user.is_admin or self.request.user.is_content_manager):
             queryset = queryset.filter(
                 Q(owner=self.request.user) | Q(status='PUBLISHED')
             )
@@ -89,7 +89,7 @@ class LibraryResourceListView(generics.ListAPIView):
     GET /api/library/resources/
     """
     serializer_class = ResourceSerializer
-    permission_classes = [IsTeacher]
+    permission_classes = [IsRegisteredUser]
     pagination_class = LibraryPagination
     filter_backends = [DjangoFilterBackend]
     filterset_class = ResourceFilter
@@ -103,7 +103,7 @@ class LibraryResourceListView(generics.ListAPIView):
         )
         
         # Non-owners can only see published resources
-        if not (self.request.user.is_admin or self.request.user.is_school_admin):
+        if not (self.request.user.is_admin or self.request.user.is_content_manager):
             queryset = queryset.filter(
                 Q(owner=self.request.user) | Q(status='PUBLISHED')
             )
@@ -123,7 +123,7 @@ class LibraryPlaylistListView(generics.ListAPIView):
     GET /api/library/playlists/
     """
     serializer_class = PlaylistSerializer
-    permission_classes = [IsTeacher]
+    permission_classes = [IsRegisteredUser]
     pagination_class = LibraryPagination
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['is_public', 'owner']
@@ -142,7 +142,7 @@ class LibraryPlaylistListView(generics.ListAPIView):
         )
         
         # Users can see their own playlists or public ones
-        if not (self.request.user.is_admin or self.request.user.is_school_admin):
+        if not (self.request.user.is_admin or self.request.user.is_content_manager):
             queryset = queryset.filter(
                 Q(owner=self.request.user) | Q(is_public=True)
             )
@@ -156,7 +156,7 @@ class LibraryVideoDetailView(generics.RetrieveAPIView):
     GET /api/library/videos/{id}/
     """
     serializer_class = VideoAssetSerializer
-    permission_classes = [IsTeacher]
+    permission_classes = [IsRegisteredUser]
     
     def get_queryset(self):
         """Videos accessible to the user"""
@@ -175,7 +175,7 @@ class LibraryVideoDetailView(generics.RetrieveAPIView):
             video.owner == self.request.user or 
             video.status == 'PUBLISHED' or
             self.request.user.is_admin or 
-            self.request.user.is_school_admin
+            self.request.user.is_content_manager
         ):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You don't have permission to view this video.")
@@ -189,7 +189,7 @@ class LibraryResourceDetailView(generics.RetrieveAPIView):
     GET /api/library/resources/{id}/
     """
     serializer_class = ResourceSerializer
-    permission_classes = [IsTeacher]
+    permission_classes = [IsRegisteredUser]
     
     def get_queryset(self):
         """Resources accessible to the user"""
@@ -208,7 +208,7 @@ class LibraryResourceDetailView(generics.RetrieveAPIView):
             resource.owner == self.request.user or 
             resource.status == 'PUBLISHED' or
             self.request.user.is_admin or 
-            self.request.user.is_school_admin
+            self.request.user.is_content_manager
         ):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You don't have permission to view this resource.")
@@ -217,7 +217,7 @@ class LibraryResourceDetailView(generics.RetrieveAPIView):
 
 
 @api_view(['GET'])
-@permission_classes([IsTeacher])
+@permission_classes([IsRegisteredUser])
 def teacher_dashboard(request):
     """
     Teacher dashboard with recent uploads, stats, and quick links
@@ -348,7 +348,7 @@ def teacher_dashboard(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsTeacher])
+@permission_classes([IsRegisteredUser])
 def library_stats(request):
     """
     Library statistics and metadata
@@ -371,10 +371,10 @@ def library_stats(request):
             school=school, status='PUBLISHED'
         ).values('file_type').annotate(count=Count('id')).order_by('file_type')
         
-        # Most active teachers
+        # Most active users
         active_teachers = User.objects.filter(
             school=school,
-            role__in=['TEACHER', 'SCHOOL_ADMIN']
+            role__in=['REGISTERED_USER', 'CONTENT_MANAGER', 'ADMIN']
         ).annotate(
             video_count=Count('videoasset', filter=Q(videoasset__status='PUBLISHED')),
             resource_count=Count('resource', filter=Q(resource__status='PUBLISHED'))

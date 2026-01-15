@@ -12,7 +12,7 @@ from django.db import models, transaction
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Count
-from accounts.permissions import IsTeacher, IsSchoolAdmin, IsAdmin
+from accounts.permissions import IsRegisteredUser, IsContentManager, IsAdmin
 from .models import VideoAsset, Resource, AuditLog
 from .serializers import VideoAssetSerializer, ResourceSerializer
 import logging
@@ -26,7 +26,7 @@ class ContentApprovalViewSet(ModelViewSet):
     Content approval workflow management for school admins and system admins
     """
     serializer_class = VideoAssetSerializer
-    permission_classes = [IsSchoolAdmin | IsAdmin]
+    permission_classes = [IsContentManager | IsAdmin]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status', 'grade', 'topic', 'owner']
     search_fields = ['title', 'description']
@@ -42,7 +42,7 @@ class ContentApprovalViewSet(ModelViewSet):
             return VideoAsset.objects.select_related(
                 'owner', 'school', 'reviewed_by'
             ).all()
-        elif user.is_school_admin:
+        elif user.is_content_manager:
             # School admins only see content from their school
             return VideoAsset.objects.select_related(
                 'owner', 'school', 'reviewed_by'
@@ -79,7 +79,7 @@ class ContentApprovalViewSet(ModelViewSet):
         video = self.get_object()
         
         # Only owners can submit their own content
-        if video.owner != request.user and not (request.user.is_admin or request.user.is_school_admin):
+        if video.owner != request.user and not (request.user.is_admin or request.user.is_content_manager):
             return Response(
                 {'error': 'Only the content owner can submit for review'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -142,14 +142,14 @@ class ContentApprovalViewSet(ModelViewSet):
         video = self.get_object()
         
         # Only school admins and system admins can approve
-        if not (request.user.is_school_admin or request.user.is_admin):
+        if not (request.user.is_content_manager or request.user.is_admin):
             return Response(
                 {'error': 'Insufficient permissions to approve content'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
         
         # School admins can only approve content from their school
-        if request.user.is_school_admin and video.school != request.user.school:
+        if request.user.is_content_manager and video.school != request.user.school:
             return Response(
                 {'error': 'Cannot approve content from other schools'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -208,14 +208,14 @@ class ContentApprovalViewSet(ModelViewSet):
         video = self.get_object()
         
         # Only school admins and system admins can reject
-        if not (request.user.is_school_admin or request.user.is_admin):
+        if not (request.user.is_content_manager or request.user.is_admin):
             return Response(
                 {'error': 'Insufficient permissions to reject content'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
         
         # School admins can only reject content from their school
-        if request.user.is_school_admin and video.school != request.user.school:
+        if request.user.is_content_manager and video.school != request.user.school:
             return Response(
                 {'error': 'Cannot reject content from other schools'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -385,7 +385,7 @@ class ContentApprovalViewSet(ModelViewSet):
 
 
 @api_view(['GET'])
-@permission_classes([IsTeacher])
+@permission_classes([IsRegisteredUser])
 def my_content_status(request):
     """
     Get current user's content status overview

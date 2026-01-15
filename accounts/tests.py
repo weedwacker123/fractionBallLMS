@@ -7,7 +7,7 @@ from rest_framework import status
 from firebase_admin import auth
 from accounts.models import School, User
 from accounts.authentication import FirebaseAuthentication
-from accounts.permissions import IsAdmin, IsSchoolAdmin, IsTeacher
+from accounts.permissions import IsAdmin, IsContentManager, IsRegisteredUser
 import factory
 
 User = get_user_model()
@@ -34,7 +34,7 @@ class UserFactory(factory.django.DjangoModelFactory):
     last_name = factory.Faker('last_name')
     firebase_uid = factory.Sequence(lambda n: f"firebase_uid_{n}")
     school = factory.SubFactory(SchoolFactory)
-    role = User.Role.TEACHER
+    role = User.Role.REGISTERED_USER
     is_active = True
 
 
@@ -64,7 +64,7 @@ class UserModelTest(TestCase):
         school = SchoolFactory()
         
         # Test teacher
-        teacher = UserFactory(school=school, role=User.Role.TEACHER)
+        teacher = UserFactory(school=school, role=User.Role.REGISTERED_USER)
         self.assertTrue(teacher.is_teacher)
         self.assertFalse(teacher.is_school_admin)
         self.assertFalse(teacher.is_admin)
@@ -85,7 +85,7 @@ class UserModelTest(TestCase):
         
         admin = UserFactory(role=User.Role.ADMIN, school=school1)
         school_admin = UserFactory(role=User.Role.SCHOOL_ADMIN, school=school1)
-        teacher = UserFactory(role=User.Role.TEACHER, school=school1)
+        teacher = UserFactory(role=User.Role.REGISTERED_USER, school=school1)
         
         # Admin can manage any school
         self.assertTrue(admin.can_manage_school(school1))
@@ -193,9 +193,9 @@ class PermissionsTest(TestCase):
         self.school = SchoolFactory()
         self.admin = UserFactory(role=User.Role.ADMIN, school=self.school)
         self.school_admin = UserFactory(role=User.Role.SCHOOL_ADMIN, school=self.school)
-        self.teacher = UserFactory(role=User.Role.TEACHER, school=self.school)
+        self.teacher = UserFactory(role=User.Role.REGISTERED_USER, school=self.school)
         self.other_school = SchoolFactory()
-        self.other_teacher = UserFactory(role=User.Role.TEACHER, school=self.other_school)
+        self.other_teacher = UserFactory(role=User.Role.REGISTERED_USER, school=self.other_school)
     
     def test_is_admin_permission(self):
         """Test IsAdmin permission"""
@@ -257,7 +257,7 @@ class APIEndpointsTest(APITestCase):
     def setUp(self):
         self.school = SchoolFactory()
         self.admin = UserFactory(role=User.Role.ADMIN, school=self.school)
-        self.teacher = UserFactory(role=User.Role.TEACHER, school=self.school)
+        self.teacher = UserFactory(role=User.Role.REGISTERED_USER, school=self.school)
     
     def test_health_check_endpoint(self):
         """Test health check endpoint"""

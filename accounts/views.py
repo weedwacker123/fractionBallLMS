@@ -122,11 +122,27 @@ def verify_token(request):
                 first_name=first_name,
                 last_name=last_name,
                 school=None,  # No school required for local development
-                role=User.Role.TEACHER,
+                role=User.Role.REGISTERED_USER,
             )
             
             logger.info(f"Created new user: {user.email} ({user.username})")
-        
+
+        # Sync role FROM Firestore (single source of truth)
+        try:
+            from content.firestore_service import get_user_role
+            firestore_role = get_user_role(firebase_uid)
+
+            if firestore_role:
+                # Map Firestore role to Django role
+                valid_roles = ['ADMIN', 'CONTENT_MANAGER', 'REGISTERED_USER']
+                if firestore_role in valid_roles and user.role != firestore_role:
+                    user.role = firestore_role
+                    user.save(update_fields=['role'])
+                    logger.info(f"Synced role from Firestore: {user.email} -> {firestore_role}")
+        except Exception as e:
+            logger.warning(f"Failed to sync role from Firestore: {e}")
+            # Non-blocking - continue with existing Django role
+
         # CRITICAL: Log the user in using Django's auth system
         # This sets _auth_user_id and _auth_user_backend in session
         # which makes @login_required and request.user.is_authenticated work

@@ -10,7 +10,7 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.utils import timezone
 from django.http import HttpResponse
-from accounts.permissions import IsTeacher, IsSchoolAdmin, IsAdmin
+from accounts.permissions import IsRegisteredUser, IsContentManager, IsAdmin
 from .bulk_upload import create_bulk_upload_job, get_job_status
 from .models import AuditLog
 import csv
@@ -22,7 +22,7 @@ User = get_user_model()
 
 
 @api_view(['POST'])
-@permission_classes([IsTeacher])
+@permission_classes([IsRegisteredUser])
 @parser_classes([MultiPartParser, FormParser])
 def upload_csv(request):
     """
@@ -157,7 +157,7 @@ def upload_csv(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsTeacher])
+@permission_classes([IsRegisteredUser])
 def job_status(request, job_id):
     """
     Get status of a bulk upload job
@@ -174,7 +174,7 @@ def job_status(request, job_id):
         
         # Verify job belongs to current user (or user is admin)
         if (str(request.user.id) != job_data.get('user_id') and 
-            not (request.user.is_admin or request.user.is_school_admin)):
+            not (request.user.is_admin or request.user.is_content_manager)):
             return Response(
                 {'error': 'Access denied'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -194,7 +194,7 @@ def job_status(request, job_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsTeacher])
+@permission_classes([IsRegisteredUser])
 def my_upload_jobs(request):
     """
     Get list of user's bulk upload jobs
@@ -238,7 +238,7 @@ def my_upload_jobs(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsSchoolAdmin | IsAdmin])
+@permission_classes([IsContentManager | IsAdmin])
 def school_upload_jobs(request):
     """
     Get bulk upload jobs for school (school admin) or all schools (system admin)
@@ -249,7 +249,7 @@ def school_upload_jobs(request):
         if request.user.is_admin:
             # System admin sees all
             logs_query = AuditLog.objects.filter(action='BULK_UPLOAD_STARTED')
-        elif request.user.is_school_admin:
+        elif request.user.is_content_manager:
             # School admin sees only their school
             school_users = User.objects.filter(school=request.user.school)
             logs_query = AuditLog.objects.filter(
@@ -297,7 +297,7 @@ def school_upload_jobs(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsTeacher])
+@permission_classes([IsRegisteredUser])
 def download_template(request):
     """
     Download CSV template for bulk uploads

@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.core.paginator import Paginator
 from django.db.models import Q, Count, Avg
-from .permissions import IsAdmin, IsSchoolAdmin
+from .permissions import IsAdmin, IsContentManager
 from .models import School
 from .serializers import UserSerializer, SchoolSerializer
 from content.models import AuditLog
@@ -41,7 +41,7 @@ class AdminUserViewSet(ModelViewSet):
         if user.is_admin:
             # System admins see all users
             return User.objects.select_related('school').all()
-        elif user.is_school_admin:
+        elif user.is_content_manager:
             # School admins only see users from their school
             return User.objects.select_related('school').filter(
                 school=user.school
@@ -66,7 +66,7 @@ class AdminUserViewSet(ModelViewSet):
             )
         
         # Permission checks
-        if request.user.is_school_admin:
+        if request.user.is_content_manager:
             # School admins can only manage users in their school
             if target_user.school != request.user.school:
                 return Response(
@@ -120,7 +120,7 @@ class AdminUserViewSet(ModelViewSet):
         target_user = self.get_object()
         
         # Permission checks for school admins
-        if request.user.is_school_admin and target_user.school != request.user.school:
+        if request.user.is_content_manager and target_user.school != request.user.school:
             return Response(
                 {'error': 'Cannot manage users outside your school'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -161,7 +161,7 @@ class AdminUserViewSet(ModelViewSet):
         target_user = self.get_object()
         
         # Permission checks for school admins
-        if request.user.is_school_admin and target_user.school != request.user.school:
+        if request.user.is_content_manager and target_user.school != request.user.school:
             return Response(
                 {'error': 'Cannot manage users outside your school'}, 
                 status=status.HTTP_403_FORBIDDEN

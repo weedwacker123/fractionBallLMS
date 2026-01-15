@@ -23,21 +23,20 @@ class School(models.Model):
 
 class User(AbstractUser):
     """Custom user model with Firebase integration and role-based access"""
-    
+
     class Role(models.TextChoices):
-        ADMIN = 'ADMIN', 'System Admin'
+        ADMIN = 'ADMIN', 'Site Administrator'
         CONTENT_MANAGER = 'CONTENT_MANAGER', 'Content Manager'
-        SCHOOL_ADMIN = 'SCHOOL_ADMIN', 'School Admin'
-        TEACHER = 'TEACHER', 'Teacher'
-    
+        REGISTERED_USER = 'REGISTERED_USER', 'Registered User'
+
     # Firebase integration
     firebase_uid = models.CharField(max_length=128, unique=True, help_text="Firebase User ID")
-    
+
     # Role and organization
     role = models.CharField(
-        max_length=20, 
-        choices=Role.choices, 
-        default=Role.TEACHER,
+        max_length=20,
+        choices=Role.choices,
+        default=Role.REGISTERED_USER,
         help_text="User role determines access permissions"
     )
     school = models.ForeignKey(
@@ -69,7 +68,7 @@ class User(AbstractUser):
 
     @property
     def is_admin(self):
-        """Check if user is a system admin"""
+        """Check if user is a site administrator"""
         return self.role == self.Role.ADMIN
 
     @property
@@ -78,14 +77,9 @@ class User(AbstractUser):
         return self.role == self.Role.CONTENT_MANAGER
 
     @property
-    def is_school_admin(self):
-        """Check if user is a school admin"""
-        return self.role == self.Role.SCHOOL_ADMIN
-
-    @property
-    def is_teacher(self):
-        """Check if user is a teacher"""
-        return self.role == self.Role.TEACHER
+    def is_registered_user(self):
+        """Check if user is a registered user (basic access)"""
+        return self.role == self.Role.REGISTERED_USER
 
     @property
     def can_manage_content(self):
@@ -97,10 +91,7 @@ class User(AbstractUser):
         """Check if user has access to CMS/Admin interface"""
         return self.role in [self.Role.ADMIN, self.Role.CONTENT_MANAGER]
 
-    def can_manage_school(self, school):
-        """Check if user can manage a specific school"""
-        if self.is_admin:
-            return True
-        if self.is_school_admin and self.school == school:
-            return True
-        return False
+    @property
+    def can_moderate_community(self):
+        """Check if user can moderate community posts (Admin or Content Manager)"""
+        return self.role in [self.Role.ADMIN, self.Role.CONTENT_MANAGER]

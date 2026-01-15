@@ -5,7 +5,7 @@ from rest_framework.viewsets import ModelViewSet
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
 from django.db import models
-from accounts.permissions import IsTeacher, IsOwnerOrSchoolAdmin
+from accounts.permissions import IsRegisteredUser, IsOwner
 from .models import VideoAsset, Resource, Playlist, PlaylistItem
 from .serializers import (
     VideoAssetSerializer, VideoAssetCreateSerializer,
@@ -26,7 +26,7 @@ class VideoAssetViewSet(ModelViewSet):
     ViewSet for VideoAsset management
     """
     serializer_class = VideoAssetSerializer
-    permission_classes = [IsTeacher]
+    permission_classes = [IsRegisteredUser]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['grade', 'topic', 'status', 'owner']
     search_fields = ['title', 'description', 'tags']
@@ -41,7 +41,7 @@ class VideoAssetViewSet(ModelViewSet):
         queryset = queryset.filter(school=self.request.user.school)
         
         # Non-owners can only see published videos (unless they're admins)
-        if not (self.request.user.is_admin or self.request.user.is_school_admin):
+        if not (self.request.user.is_admin or self.request.user.is_content_manager):
             queryset = queryset.filter(
                 models.Q(owner=self.request.user) | 
                 models.Q(status='PUBLISHED')
@@ -68,7 +68,7 @@ class ResourceViewSet(ModelViewSet):
     ViewSet for Resource management
     """
     serializer_class = ResourceSerializer
-    permission_classes = [IsTeacher]
+    permission_classes = [IsRegisteredUser]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['file_type', 'grade', 'topic', 'status', 'owner']
     search_fields = ['title', 'description', 'tags']
@@ -83,7 +83,7 @@ class ResourceViewSet(ModelViewSet):
         queryset = queryset.filter(school=self.request.user.school)
         
         # Non-owners can only see published resources (unless they're admins)
-        if not (self.request.user.is_admin or self.request.user.is_school_admin):
+        if not (self.request.user.is_admin or self.request.user.is_content_manager):
             queryset = queryset.filter(
                 models.Q(owner=self.request.user) | 
                 models.Q(status='PUBLISHED')
@@ -103,7 +103,7 @@ class PlaylistViewSet(ModelViewSet):
     ViewSet for Playlist management
     """
     serializer_class = PlaylistSerializer
-    permission_classes = [IsTeacher]
+    permission_classes = [IsRegisteredUser]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['is_public', 'owner']
     search_fields = ['name', 'description']
@@ -120,7 +120,7 @@ class PlaylistViewSet(ModelViewSet):
         queryset = queryset.filter(school=self.request.user.school)
         
         # Users can see their own playlists or public ones
-        if not (self.request.user.is_admin or self.request.user.is_school_admin):
+        if not (self.request.user.is_admin or self.request.user.is_content_manager):
             queryset = queryset.filter(
                 models.Q(owner=self.request.user) | 
                 models.Q(is_public=True)
@@ -137,7 +137,7 @@ class PlaylistViewSet(ModelViewSet):
 
 
 @api_view(['POST'])
-@permission_classes([IsTeacher])
+@permission_classes([IsRegisteredUser])
 def request_signed_upload_url(request):
     """
     Generate signed URL for direct upload to Firebase Storage
@@ -187,7 +187,7 @@ def request_signed_upload_url(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsTeacher])
+@permission_classes([IsRegisteredUser])
 def upload_complete(request):
     """
     Handle upload completion and create asset record
@@ -281,7 +281,7 @@ def upload_complete(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsTeacher])
+@permission_classes([IsRegisteredUser])
 def generate_resource_download_url(request, resource_id):
     """
     Generate signed download URL for a resource (not videos) with tracking
@@ -299,7 +299,7 @@ def generate_resource_download_url(request, resource_id):
             resource.owner == request.user or 
             resource.status == 'PUBLISHED' or
             request.user.is_admin or 
-            request.user.is_school_admin
+            request.user.is_content_manager
         ):
             return Response(
                 {'error': 'Permission denied'},

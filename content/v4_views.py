@@ -37,11 +37,10 @@ def get_storage_url(path: str) -> str:
     return f"https://firebasestorage.googleapis.com/v0/b/{FIREBASE_STORAGE_BUCKET}/o/{encoded_path}?alt=media"
 
 
-@login_required
 def home(request):
     """
-    Main home page with activity cards - dynamically loaded from database
-    Requires authentication.
+    Main home page with activity cards - dynamically loaded from database.
+    Publicly accessible.
     """
     # Get filter parameters
     selected_grade = request.GET.get('grade', '5')
@@ -289,10 +288,9 @@ def community(request):
     return render(request, 'community.html')
 
 
-@login_required
 def faq(request):
     """
-    FAQ page. Requires authentication.
+    FAQ page. Publicly accessible.
     """
     return render(request, 'faq.html')
 

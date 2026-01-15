@@ -67,11 +67,6 @@
                         {% endif %}
                     </div>
                     {% endfor %}
-                    {% if user.is_authenticated %}
-                    <a href="/playlists/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors uppercase">PLAYLISTS</a>
-                    <a href="/upload/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors uppercase">UPLOAD</a>
-                    <a href="/analytics/" class="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors uppercase">ANALYTICS</a>
-                    {% endif %}
                 </div>
                 
                 <!-- Right Side Icons -->
@@ -166,11 +161,6 @@
                 {% endif %}
                 {% endfor %}
                 {% if user.is_authenticated %}
-                <div class="border-t border-gray-200 my-2"></div>
-                <a href="/playlists/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">My Playlists</a>
-                <a href="/upload/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">Upload Content</a>
-                <a href="/my-uploads/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">My Uploads</a>
-                <a href="/analytics/" class="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg">Analytics</a>
                 {% if user.is_staff or user.role == 'ADMIN' or user.role == 'CONTENT_MANAGER' %}
                 <div class="border-t border-gray-200 my-2"></div>
                 <p class="px-3 py-1 text-xs font-semibold text-gray-400 uppercase">Management</p>

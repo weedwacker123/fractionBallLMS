@@ -20,8 +20,8 @@ class FirebaseAuthMiddleware(MiddlewareMixin):
     Includes token caching to avoid Firebase verification on every request.
     """
 
-    # Paths that don't require authentication
-    PUBLIC_PATHS = [
+    # Paths that don't require authentication (prefix match)
+    PUBLIC_PATH_PREFIXES = [
         '/accounts/login/',
         '/accounts/django-login/',
         '/accounts/logout/',
@@ -29,12 +29,23 @@ class FirebaseAuthMiddleware(MiddlewareMixin):
         '/api/',
         '/admin/',
         '/static/',
+        '/faq/',
+        '/search/',
+    ]
+
+    # Exact paths that don't require authentication
+    PUBLIC_EXACT_PATHS = [
+        '/',
         '/favicon.ico',
     ]
 
     def _is_public_path(self, path):
         """Check if the path is public (doesn't require authentication)"""
-        for public_path in self.PUBLIC_PATHS:
+        # Check exact matches first
+        if path in self.PUBLIC_EXACT_PATHS:
+            return True
+        # Check prefix matches
+        for public_path in self.PUBLIC_PATH_PREFIXES:
             if path.startswith(public_path):
                 return True
         return False

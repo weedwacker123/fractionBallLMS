@@ -10,7 +10,7 @@ from django.db.models import Count, Sum, Avg, Q
 from django.utils import timezone
 from django.http import HttpResponse, StreamingHttpResponse
 from datetime import datetime, timedelta
-from accounts.permissions import IsTeacher, IsSchoolAdmin, IsAdmin
+from accounts.permissions import IsRegisteredUser, IsContentManager, IsAdmin
 from .models import VideoAsset, Resource, AssetView, AssetDownload, AuditLog
 from accounts.models import School
 import csv
@@ -29,7 +29,7 @@ class Echo:
 
 
 @api_view(['GET'])
-@permission_classes([IsSchoolAdmin | IsAdmin])
+@permission_classes([IsContentManager | IsAdmin])
 def export_views_report(request):
     """
     Export video views report as CSV
@@ -144,7 +144,7 @@ def export_views_report(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsSchoolAdmin | IsAdmin])
+@permission_classes([IsContentManager | IsAdmin])
 def export_downloads_report(request):
     """
     Export resource downloads report as CSV
@@ -249,7 +249,7 @@ def export_downloads_report(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsSchoolAdmin | IsAdmin])
+@permission_classes([IsContentManager | IsAdmin])
 def export_content_report(request):
     """
     Export content inventory report as CSV
@@ -375,7 +375,7 @@ def export_content_report(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsSchoolAdmin | IsAdmin])
+@permission_classes([IsContentManager | IsAdmin])
 def export_analytics_summary(request):
     """
     Export analytics summary report as CSV
@@ -471,7 +471,7 @@ def export_analytics_summary(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsSchoolAdmin | IsAdmin])
+@permission_classes([IsContentManager | IsAdmin])
 def reports_dashboard(request):
     """
     Reports dashboard with available reports and recent exports

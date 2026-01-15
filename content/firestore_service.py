@@ -677,6 +677,29 @@ def full_sync(user, school):
 # Firestore Write Functions (Django → Firestore sync)
 # =============================================================================
 
+def get_user_role(firebase_uid: str) -> Optional[str]:
+    """
+    Get user role from Firestore users collection.
+
+    This is the single source of truth for user roles.
+    Called on login to sync role from Firestore to Django.
+
+    Args:
+        firebase_uid: Firebase user ID (document ID in users collection)
+
+    Returns:
+        Role string (ADMIN, CONTENT_MANAGER, REGISTERED_USER) or None if not found
+    """
+    try:
+        user_doc = get_document('users', firebase_uid)
+        if user_doc:
+            return user_doc.get('role')
+        return None
+    except Exception as e:
+        logger.error(f"Error fetching user role from Firestore: {e}")
+        return None
+
+
 def create_or_update_user_profile(firebase_uid: str, user_data: Dict[str, Any]) -> bool:
     """
     Write/update user profile to Firestore users collection
