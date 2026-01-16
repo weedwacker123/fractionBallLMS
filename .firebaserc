@@ -7,9 +7,6 @@
       "hosting": {
         "main": [
           "fractionball-lms"
-        ],
-        "admin": [
-          "fractionball-admin"
         ]
       }
     }

@@ -269,9 +269,32 @@
         // Initialize Firebase
         let app, auth, googleProvider;
 
-        // Get the 'next' parameter from URL for redirect after login
+        // Get the 'next' parameter from URL for redirect after login (with open redirect protection)
         const urlParams = new URLSearchParams(window.location.search);
-        const nextUrl = urlParams.get('next') || '/';
+        const rawNextUrl = urlParams.get('next') || '/';
+
+        // Validate redirect URL to prevent open redirect attacks
+        const allowedHosts = [
+            window.location.host,
+            'fractionball-lms.web.app',
+            'fractionball-lms.firebaseapp.com'
+        ];
+
+        function isValidRedirectUrl(url) {
+            // Allow relative paths starting with /
+            if (url.startsWith('/') && !url.startsWith('//')) {
+                return true;
+            }
+            // Check if absolute URL is from allowed host
+            try {
+                const parsedUrl = new URL(url);
+                return allowedHosts.includes(parsedUrl.host);
+            } catch {
+                return false;
+            }
+        }
+
+        const nextUrl = isValidRedirectUrl(rawNextUrl) ? rawNextUrl : '/';
 
         // Flag to prevent multiple redirect attempts
         let isRedirecting = false;
@@ -325,8 +348,8 @@
                 // Get Firebase ID token
                 const idToken = await user.getIdToken();
 
-                // Store token in cookie
-                document.cookie = `firebase_token=${idToken}; path=/; max-age=3600; SameSite=Lax`;
+                // Store token in cookie (with Secure flag for HTTPS)
+                document.cookie = `firebase_token=${idToken}; path=/; max-age=3600; SameSite=Strict; Secure`;
 
                 // Send to backend for verification
                 const response = await fetch('/accounts/verify-token/', {

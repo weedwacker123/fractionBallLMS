@@ -8,6 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from firebase_admin import auth
 
 logger = logging.getLogger(__name__)
@@ -46,8 +47,10 @@ def django_login_view(request):
             logger.info(f"User {username} logged in successfully")
             messages.success(request, f'Welcome back, {user.get_full_name() or username}!')
             
-            # Redirect to next page or home
+            # Redirect to next page or home (with open redirect protection)
             next_url = request.GET.get('next', '/')
+            if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+                next_url = '/'
             return redirect(next_url)
         else:
             logger.warning(f"Failed login attempt for username: {username}")

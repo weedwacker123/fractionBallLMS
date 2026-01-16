@@ -6,7 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Fraction Ball{% endblock %}</title>
     
-    <!-- Tailwind CSS CDN -->
+    <!-- Tailwind CSS CDN - Note: SRI not supported as content is dynamically generated -->
+    <!-- For production, consider using the Tailwind CLI build process instead -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -21,8 +22,10 @@
         }
     </script>
     
-    <!-- HTMX -->
-    <script src="https://unpkg.com/htmx.org@1.9.8"></script>
+    <!-- HTMX with Subresource Integrity -->
+    <script src="https://unpkg.com/htmx.org@1.9.8"
+            integrity="sha384-rgjA7mptc2ETQqXoYC3/zJvkU7K/aP44Y+z7xQuJiVnB/422P/Ak+F/AqFR7E4Wr"
+            crossorigin="anonymous"></script>
     
     <!-- Inter Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

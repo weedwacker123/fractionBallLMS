@@ -68,12 +68,36 @@ for origin in _firebase_origins:
         CSRF_TRUSTED_ORIGINS.append(origin)
 
 # Content Security Policy
+# Note: 'unsafe-inline' is needed for Tailwind config - consider using CSP nonces in production
 CSP_DEFAULT_SRC = ("'self'",)
-CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://unpkg.com")
-CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com")
+CSP_SCRIPT_SRC = (
+    "'self'",
+    "'unsafe-inline'",  # Required for inline Tailwind config - TODO: use nonces
+    "https://cdn.tailwindcss.com",
+    "https://unpkg.com",
+    "https://www.gstatic.com",  # Firebase SDK
+)
+CSP_STYLE_SRC = (
+    "'self'",
+    "'unsafe-inline'",
+    "https://cdn.tailwindcss.com",
+    "https://fonts.googleapis.com",
+)
 CSP_IMG_SRC = ("'self'", "data:", "https:")
-CSP_FONT_SRC = ("'self'", "https:")
-CSP_CONNECT_SRC = ("'self'", "https:")
+CSP_FONT_SRC = (
+    "'self'",
+    "https://fonts.gstatic.com",
+    "https://fonts.googleapis.com",
+)
+CSP_CONNECT_SRC = (
+    "'self'",
+    "https://identitytoolkit.googleapis.com",  # Firebase Auth
+    "https://securetoken.googleapis.com",  # Firebase Auth tokens
+    "https://firestore.googleapis.com",  # Firestore
+    "https://www.googleapis.com",  # Google APIs
+    "https://fractionball-lms.firebaseapp.com",
+    "https://fractionball-lms.web.app",
+)
 CSP_FRAME_SRC = ("'none'",)
 CSP_OBJECT_SRC = ("'none'",)
 CSP_BASE_URI = ("'self'",)
