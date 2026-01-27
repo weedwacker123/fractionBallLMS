@@ -250,6 +250,24 @@ def activity_detail(request, slug):
             grade=activity.grade
         ).exclude(id=activity.id).order_by('order', 'activity_number')[:3]
 
+    # Process learning_objectives into a list (handles both string and list formats)
+    learning_objectives_raw = getattr(activity, 'learning_objectives', None) or ''
+    if isinstance(learning_objectives_raw, str):
+        # Parse string format: "Students will be able to:\n• objective1\n• objective2"
+        lines = learning_objectives_raw.split('\n')
+        learning_objectives = []
+        for line in lines:
+            # Skip the "Students will be able to:" header (already in template)
+            if 'students will be able to' in line.lower():
+                continue
+            # Clean up bullet characters and whitespace
+            cleaned = line.strip().lstrip('•').lstrip('-').lstrip('*').strip()
+            if cleaned:
+                learning_objectives.append(cleaned)
+    else:
+        # Already a list (Firestore format)
+        learning_objectives = learning_objectives_raw or []
+
     # Build context with all activity data
     context = {
         'activity': activity,
@@ -257,6 +275,7 @@ def activity_detail(request, slug):
         'teacher_resources': teacher_resources,
         'student_resources': student_resources,
         'related_activities': related_activities,
+        'learning_objectives': learning_objectives,
     }
 
     # Add new fields from Firestore adapter (if available)
