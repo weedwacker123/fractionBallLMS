@@ -21,7 +21,7 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-# Allowed hosts for Cloud Run and Firebase Hosting
+# Allowed hosts for Cloud Run, Firebase Hosting, and Vercel
 ALLOWED_HOSTS = [
     '.run.app',  # Cloud Run domains
     '.fractionball.com',  # Your custom domain
@@ -31,6 +31,7 @@ ALLOWED_HOSTS = [
     'fractionball-lms.firebaseapp.com',  # Firebase Hosting
     '.web.app',  # Firebase Hosting wildcard
     '.firebaseapp.com',  # Firebase Hosting wildcard
+    '.vercel.app',  # Vercel domains
     'localhost',  # For health checks
 ]
 
@@ -79,6 +80,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://*.us-central1.run.app',
     'https://*.web.app',
     'https://*.firebaseapp.com',
+    'https://*.vercel.app',  # Vercel domains
 ]
 
 # Add Cloud Run URL to CSRF trusted origins
@@ -292,6 +294,11 @@ CORS_ALLOWED_ORIGINS = [
     'https://fractionball-admin.firebaseapp.com',
 ]
 
+# Add Vercel domains to CORS (will be populated after deployment)
+VERCEL_DOMAIN = config('VERCEL_DOMAIN', default='')
+if VERCEL_DOMAIN:
+    CORS_ALLOWED_ORIGINS.append(f'https://{VERCEL_DOMAIN}')
+
 # Add Cloud Run URL to CORS
 if CLOUD_RUN_SERVICE_URL:
     CORS_ALLOWED_ORIGINS.append(CLOUD_RUN_SERVICE_URL)
@@ -320,6 +327,15 @@ FIREBASE_STORAGE_BUCKET = config('FIREBASE_STORAGE_BUCKET', default='fractionbal
 
 # Use Firebase for all storage in production
 STORAGE_BACKEND = 'firebase'
+
+# =============================================================================
+# FIRESTORE INTEGRATION
+# =============================================================================
+
+# Use Firestore for content data (activities, resources, videos, etc.)
+# When True, content is fetched from Firestore (managed via CMS)
+# When False, content is fetched from Django ORM (database)
+USE_FIRESTORE = config('USE_FIRESTORE', default=True, cast=bool)
 
 # =============================================================================
 # LOGGING - Cloud Logging compatible
