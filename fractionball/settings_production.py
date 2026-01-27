@@ -161,14 +161,19 @@ if DATABASE_URL:
     DATABASES = {
         'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     }
+    # Use database-backed sessions when database is available
+    SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 else:
-    # Fallback to SQLite for testing (not recommended for production)
+    # No database configured - use SQLite for Django admin/migrations only
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+    # Use signed cookie sessions (no database needed)
+    # This stores session data in a signed cookie on the client
+    SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
 
 # =============================================================================
 # CACHE - Redis (Cloud Memorystore) or in-memory
