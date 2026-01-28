@@ -45,27 +45,47 @@ def initialize_firebase():
                 logger.error(f"❌ Firebase service account file not found: {settings.GOOGLE_APPLICATION_CREDENTIALS}")
         
         # Fall back to environment variables if JSON file didn't work
-        logger.warning("Trying to initialize with environment variables...")
-        project_id = settings.FIREBASE_CONFIG.get('project_id', '')
-        private_key = settings.FIREBASE_CONFIG.get('private_key', '')
-        
-        if project_id and private_key and len(private_key) > 100:
-            try:
-                cred = credentials.Certificate(settings.FIREBASE_CONFIG)
-                options = {}
-                if hasattr(settings, 'FIREBASE_STORAGE_BUCKET') and settings.FIREBASE_STORAGE_BUCKET:
-                    options['storageBucket'] = settings.FIREBASE_STORAGE_BUCKET
-                
-                firebase_admin.initialize_app(cred, options)
-                logger.info("✅ Firebase Admin SDK initialized successfully with env variables")
-                return True
-                
-            except Exception as init_error:
-                logger.error(f"❌ Firebase initialization with env failed: {init_error}")
-                return False
-        else:
-            logger.error("❌ Firebase credentials not properly configured in .env")
-            logger.error("Set FIREBASE_PROJECT_ID and FIREBASE_PRIVATE_KEY in your .env file")
+        logger.info("Attempting to initialize Firebase with environment variables...")
+        firebase_config = settings.FIREBASE_CONFIG
+
+        # Check for required credentials and provide specific error messages
+        missing_credentials = []
+        if not firebase_config.get('project_id'):
+            missing_credentials.append('FIREBASE_PROJECT_ID')
+        if not firebase_config.get('private_key') or len(firebase_config.get('private_key', '')) < 100:
+            missing_credentials.append('FIREBASE_PRIVATE_KEY')
+        if not firebase_config.get('client_email'):
+            missing_credentials.append('FIREBASE_CLIENT_EMAIL')
+        if not firebase_config.get('private_key_id'):
+            missing_credentials.append('FIREBASE_PRIVATE_KEY_ID')
+
+        if missing_credentials:
+            logger.error("=" * 60)
+            logger.error("FIREBASE CREDENTIALS MISSING OR INVALID")
+            logger.error("=" * 60)
+            logger.error(f"Missing environment variables: {', '.join(missing_credentials)}")
+            logger.error("")
+            logger.error("For Cloud Run deployment, ensure these secrets exist in Secret Manager:")
+            for cred in missing_credentials:
+                logger.error(f"  - {cred}")
+            logger.error("")
+            logger.error("Create secrets with: gcloud secrets create SECRET_NAME --data-file=-")
+            logger.error("Then redeploy to apply the secrets to Cloud Run.")
+            logger.error("=" * 60)
+            return False
+
+        try:
+            cred = credentials.Certificate(firebase_config)
+            options = {}
+            if hasattr(settings, 'FIREBASE_STORAGE_BUCKET') and settings.FIREBASE_STORAGE_BUCKET:
+                options['storageBucket'] = settings.FIREBASE_STORAGE_BUCKET
+
+            firebase_admin.initialize_app(cred, options)
+            logger.info("Firebase Admin SDK initialized successfully with env variables")
+            return True
+
+        except Exception as init_error:
+            logger.error(f"Firebase initialization with env failed: {init_error}")
             return False
             
     except Exception as e:

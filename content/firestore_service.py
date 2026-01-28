@@ -18,15 +18,28 @@ def get_firestore_client():
     from google.oauth2 import service_account
     from django.conf import settings
 
+    # Validate Firebase config before attempting to create client
+    firebase_config = settings.FIREBASE_CONFIG
+    if not firebase_config.get('private_key') or len(firebase_config.get('private_key', '')) < 100:
+        logger.error("Firebase credentials not configured - private_key missing or invalid")
+        raise ValueError("Firebase credentials not properly configured. Check FIREBASE_PRIVATE_KEY environment variable.")
+
+    if not firebase_config.get('client_email'):
+        logger.error("Firebase credentials not configured - client_email missing")
+        raise ValueError("Firebase credentials not properly configured. Check FIREBASE_CLIENT_EMAIL environment variable.")
+
     # Use service account credentials from Django settings
     credentials = service_account.Credentials.from_service_account_info(
-        settings.FIREBASE_CONFIG
+        firebase_config
     )
+
+    # Get project_id from config (not hardcoded)
+    project_id = firebase_config.get('project_id', 'fractionball-lms')
 
     # Use google-cloud-firestore directly with explicit database='default'
     # Note: The database is named 'default' (not '(default)') in this project
     return gc_firestore.Client(
-        project='fractionball-lms',
+        project=project_id,
         database='default',
         credentials=credentials
     )
