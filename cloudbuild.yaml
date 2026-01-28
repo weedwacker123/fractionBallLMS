@@ -3,25 +3,23 @@
 # Note: Hosting moved to Vercel - Firebase Hosting steps removed
 #
 # REQUIRED: Before deploying, create these secrets in Google Cloud Secret Manager:
-#   gcloud secrets create FIREBASE_PRIVATE_KEY --data-file=- <<< "YOUR_PRIVATE_KEY"
-#   gcloud secrets create FIREBASE_PRIVATE_KEY_ID --data-file=- <<< "YOUR_PRIVATE_KEY_ID"
-#   gcloud secrets create FIREBASE_CLIENT_EMAIL --data-file=- <<< "YOUR_CLIENT_EMAIL"
-#   gcloud secrets create FIREBASE_CLIENT_ID --data-file=- <<< "YOUR_CLIENT_ID"
-#   gcloud secrets create FIREBASE_CLIENT_X509_CERT_URL --data-file=- <<< "YOUR_CERT_URL"
-#   gcloud secrets create DJANGO_SECRET_KEY --data-file=- <<< "YOUR_DJANGO_SECRET"
+#   ./scripts/setup_cloud_secrets.sh
 #
-# Grant Cloud Run access to secrets:
-#   gcloud secrets add-iam-policy-binding FIREBASE_PRIVATE_KEY \
-#     --member="serviceAccount:YOUR_PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
-#     --role="roles/secretmanager.secretAccessor"
-#   (repeat for each secret)
+# Manual deployment:
+#   gcloud builds submit --config cloudbuild.yaml
+#
+# The $_TAG substitution defaults to 'latest' for manual builds,
+# or uses COMMIT_SHA for git-triggered builds.
+
+substitutions:
+  _TAG: 'latest'
 
 steps:
   # Step 1: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'build',
-      '-t', 'gcr.io/$PROJECT_ID/fractionball-backend:$COMMIT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/fractionball-backend:${_TAG}',
       '-t', 'gcr.io/$PROJECT_ID/fractionball-backend:latest',
       '-f', 'Dockerfile.production',
       '.'
@@ -29,7 +27,7 @@ steps:
 
   # Step 2: Push the Docker image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/fractionball-backend:$COMMIT_SHA']
+    args: ['push', 'gcr.io/$PROJECT_ID/fractionball-backend:${_TAG}']
 
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/fractionball-backend:latest']
@@ -39,7 +37,7 @@ steps:
     entrypoint: gcloud
     args: [
       'run', 'deploy', 'fractionball-backend',
-      '--image', 'gcr.io/$PROJECT_ID/fractionball-backend:$COMMIT_SHA',
+      '--image', 'gcr.io/$PROJECT_ID/fractionball-backend:${_TAG}',
       '--region', 'us-central1',
       '--platform', 'managed',
       '--allow-unauthenticated',
@@ -55,7 +53,7 @@ steps:
 
 # Store images in Container Registry
 images:
-  - 'gcr.io/$PROJECT_ID/fractionball-backend:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/fractionball-backend:${_TAG}'
   - 'gcr.io/$PROJECT_ID/fractionball-backend:latest'
 
 # Timeout for the entire build
