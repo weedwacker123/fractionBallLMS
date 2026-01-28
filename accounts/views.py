@@ -4,6 +4,8 @@ import logging
 from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model, authenticate, login as auth_login, login
 from django.contrib import messages
+from django.conf import settings
+from django.db import IntegrityError, DatabaseError
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
@@ -99,7 +101,7 @@ def verify_token(request):
         except User.DoesNotExist:
             # User doesn't exist - create a basic user for development
             # No school required for simplified local development
-            
+
             # Parse name
             first_name = ''
             last_name = ''
@@ -107,28 +109,39 @@ def verify_token(request):
                 name_parts = name.split(' ', 1)
                 first_name = name_parts[0]
                 last_name = name_parts[1] if len(name_parts) > 1 else ''
-            
+
             # Create user
             username = email.split('@')[0] if email else f'user_{firebase_uid[:8]}'
-            
+
             # Ensure unique username
             base_username = username
             counter = 1
             while User.objects.filter(username=username).exists():
                 username = f"{base_username}_{counter}"
                 counter += 1
-            
-            user = User.objects.create(
-                firebase_uid=firebase_uid,
-                email=email,
-                username=username,
-                first_name=first_name,
-                last_name=last_name,
-                school=None,  # No school required for local development
-                role=User.Role.REGISTERED_USER,
-            )
-            
-            logger.info(f"Created new user: {user.email} ({user.username})")
+
+            try:
+                user = User.objects.create(
+                    firebase_uid=firebase_uid,
+                    email=email,
+                    username=username,
+                    first_name=first_name,
+                    last_name=last_name,
+                    school=None,  # No school required for local development
+                    role=User.Role.REGISTERED_USER,
+                )
+                logger.info(f"Created new user: {user.email} ({user.username})")
+            except IntegrityError as e:
+                # Race condition: user was created between our check and create
+                logger.warning(f"IntegrityError during user creation, attempting to fetch existing user: {e}")
+                try:
+                    user = User.objects.get(firebase_uid=firebase_uid)
+                    logger.info(f"Found existing user after race condition: {user.email}")
+                except User.DoesNotExist:
+                    logger.error(f"User creation failed and user not found: {e}")
+                    return JsonResponse({
+                        'error': 'Failed to create user account. Please try again.'
+                    }, status=500)
 
         # Sync role FROM Firestore (single source of truth)
         try:
@@ -149,18 +162,30 @@ def verify_token(request):
         # CRITICAL: Log the user in using Django's auth system
         # This sets _auth_user_id and _auth_user_backend in session
         # which makes @login_required and request.user.is_authenticated work
-        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+        try:
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+        except Exception as e:
+            logger.error(f"Django login failed: {e}", exc_info=True)
+            return JsonResponse({
+                'error': 'Failed to establish session. Please try again.'
+            }, status=500)
 
         # Store Firebase-specific data in session
-        request.session['firebase_token'] = token
-        request.session['user_id'] = user.id
+        try:
+            request.session['firebase_token'] = token
+            request.session['user_id'] = user.id
 
-        # Set auth cache for faster subsequent requests (must match middleware)
-        request.session['cached_user_id'] = user.id
-        request.session['auth_cache_expiry'] = time.time() + TOKEN_CACHE_DURATION
+            # Set auth cache for faster subsequent requests (must match middleware)
+            request.session['cached_user_id'] = user.id
+            request.session['auth_cache_expiry'] = time.time() + TOKEN_CACHE_DURATION
 
-        # Set session to expire in 1 hour
-        request.session.set_expiry(3600)
+            # Set session to expire in 1 hour
+            request.session.set_expiry(3600)
+        except Exception as e:
+            logger.error(f"Session setup failed: {e}", exc_info=True)
+            return JsonResponse({
+                'error': 'Failed to save session. Please try again.'
+            }, status=500)
 
         # Sync user profile to Firestore (non-blocking)
         try:
@@ -188,10 +213,17 @@ def verify_token(request):
         })
         
     except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+    except DatabaseError as e:
+        logger.error(f"Database error during token verification: {e}", exc_info=True)
+        return JsonResponse({
+            'error': 'Database error. Please try again later.'
+        }, status=500)
     except Exception as e:
-        logger.error(f"Verify token error: {e}", exc_info=True)
-        return JsonResponse({'error': 'Internal server error'}, status=500)
+        logger.error(f"Unexpected error during token verification: {e}", exc_info=True)
+        # In development, include more details; in production, keep generic
+        error_message = f'Server error: {str(e)}' if settings.DEBUG else 'An unexpected error occurred. Please try again.'
+        return JsonResponse({'error': error_message}, status=500)
 
 
 @require_http_methods(["POST", "GET"])

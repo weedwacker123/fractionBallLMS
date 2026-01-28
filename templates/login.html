@@ -299,14 +299,21 @@
         // Flag to prevent multiple redirect attempts
         let isRedirecting = false;
 
+        function hideAllMessages() {
+            document.getElementById('successMessage').classList.add('hidden');
+            document.getElementById('errorMessage').classList.add('hidden');
+        }
+
         function showError(message) {
+            hideAllMessages();  // Ensure mutual exclusion - only one message visible
             const errorEl = document.getElementById('errorMessage');
             document.getElementById('errorText').textContent = message;
             errorEl.classList.remove('hidden');
             setTimeout(() => errorEl.classList.add('hidden'), 6000);
         }
-        
+
         function showSuccess() {
+            hideAllMessages();  // Ensure mutual exclusion - only one message visible
             document.getElementById('successMessage').classList.remove('hidden');
         }
         
@@ -342,8 +349,8 @@
             isRedirecting = true;
 
             try {
-                console.log('✅ Authentication successful:', user.email);
-                showSuccess();
+                console.log('Authenticating with backend:', user.email);
+                hideAllMessages();  // Clear any previous messages while verifying
 
                 // Get Firebase ID token
                 const idToken = await user.getIdToken();
@@ -362,15 +369,24 @@
 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('✅ Backend verification successful:', data);
-                    console.log('✅ Redirecting to:', nextUrl);
+                    console.log('Backend verification successful:', data);
 
-                    // Redirect immediately
+                    // Only show success AFTER backend confirms authentication
+                    showSuccess();
+
+                    console.log('Redirecting to:', nextUrl);
                     window.location.href = nextUrl;
                 } else {
-                    const errorData = await response.json();
-                    console.error('❌ Backend verification failed:', errorData);
-                    throw new Error(errorData.error || 'Authentication failed on server');
+                    // Parse error response safely
+                    let errorMessage = 'Authentication failed on server';
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.error || errorMessage;
+                    } catch (parseError) {
+                        console.error('Failed to parse error response:', parseError);
+                    }
+                    console.error('Backend verification failed:', errorMessage);
+                    throw new Error(errorMessage);
                 }
             } catch (error) {
                 console.error('Auth success handler error:', error);
