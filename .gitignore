@@ -89,3 +89,4 @@ logs/
 # Backup files
 *.bak
 *.backup
+.vercel

@@ -29,6 +29,12 @@ class User(AbstractUser):
         CONTENT_MANAGER = 'CONTENT_MANAGER', 'Content Manager'
         REGISTERED_USER = 'REGISTERED_USER', 'Registered User'
 
+    # Legacy role mapping for migrating from 4-tier to 3-tier role system
+    LEGACY_ROLE_MAP = {
+        'SCHOOL_ADMIN': 'REGISTERED_USER',
+        'TEACHER': 'REGISTERED_USER',
+    }
+
     # Firebase integration
     firebase_uid = models.CharField(max_length=128, unique=True, help_text="Firebase User ID")
 
@@ -56,6 +62,12 @@ class User(AbstractUser):
         ordering = ['last_name', 'first_name']
         verbose_name = 'User'
         verbose_name_plural = 'Users'
+
+    def save(self, *args, **kwargs):
+        # Normalize legacy roles before saving
+        if self.role in self.LEGACY_ROLE_MAP:
+            self.role = self.LEGACY_ROLE_MAP[self.role]
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.get_full_name()} ({self.get_role_display()})"

@@ -30,8 +30,8 @@ SECURE_HSTS_PRELOAD = config('SECURE_HSTS_PRELOAD', default=True, cast=bool)
 SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Detect if running in production (Cloud Run sets this)
-IS_PRODUCTION = config('GAE_APPLICATION', default='') != '' or config('K_SERVICE', default='') != '' or 'fractionball' in config('ALLOWED_HOSTS', default='')
+# Detect if running in production (Cloud Run / GAE set these environment variables)
+IS_PRODUCTION = config('GAE_APPLICATION', default='') != '' or config('K_SERVICE', default='') != ''
 
 # Session Security - secure cookies in production
 SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=IS_PRODUCTION, cast=bool)
@@ -46,6 +46,12 @@ CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=IS_PRODUCTION, cast=bo
 CSRF_COOKIE_HTTPONLY = False  # Must be False so JavaScript can read it for AJAX requests
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_USE_SESSIONS = config('CSRF_USE_SESSIONS', default=IS_PRODUCTION, cast=bool)  # Use session for CSRF in production
+
+# Safety guard: never enforce HTTPS security settings in DEBUG mode
+if DEBUG:
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
 
 # Parse CSRF_TRUSTED_ORIGINS - supports comma, space, or semicolon as separators
 _csrf_origins_raw = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000')

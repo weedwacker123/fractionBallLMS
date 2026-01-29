@@ -97,7 +97,13 @@ def verify_token(request):
         try:
             user = User.objects.get(firebase_uid=firebase_uid)
             logger.info(f"Existing user found: {user.email}")
-            
+
+        except DatabaseError as e:
+            logger.error(f"Database error during user lookup (firebase_uid={firebase_uid}): {e}", exc_info=True)
+            return JsonResponse({
+                'error': 'Database error during user lookup. Please try again later.'
+            }, status=500)
+
         except User.DoesNotExist:
             # User doesn't exist - create a basic user for development
             # No school required for simplified local development
@@ -149,12 +155,21 @@ def verify_token(request):
             firestore_role = get_user_role(firebase_uid)
 
             if firestore_role:
-                # Map Firestore role to Django role
+                # Map legacy Firestore roles to current 3-tier system
+                LEGACY_ROLE_MAP = {
+                    'SCHOOL_ADMIN': 'REGISTERED_USER',
+                    'TEACHER': 'REGISTERED_USER',
+                }
+                normalized_role = LEGACY_ROLE_MAP.get(firestore_role, firestore_role)
+
                 valid_roles = ['ADMIN', 'CONTENT_MANAGER', 'REGISTERED_USER']
-                if firestore_role in valid_roles and user.role != firestore_role:
-                    user.role = firestore_role
+                if normalized_role in valid_roles and user.role != normalized_role:
+                    user.role = normalized_role
                     user.save(update_fields=['role'])
-                    logger.info(f"Synced role from Firestore: {user.email} -> {firestore_role}")
+                    logger.info(f"Synced role from Firestore: {user.email} -> {normalized_role}"
+                                + (f" (mapped from legacy '{firestore_role}')" if firestore_role != normalized_role else ""))
+                elif normalized_role not in valid_roles:
+                    logger.warning(f"Unknown Firestore role '{firestore_role}' for user {user.email}; skipping role sync")
         except Exception as e:
             logger.warning(f"Failed to sync role from Firestore: {e}")
             # Non-blocking - continue with existing Django role
