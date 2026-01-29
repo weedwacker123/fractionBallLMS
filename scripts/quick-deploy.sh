@@ -30,7 +30,7 @@ case $MODE in
         echo "⏱️  This takes ~2-3 minutes"
         
         # Build for AMD64 (Cloud Run)
-        docker build --platform linux/amd64 -t $IMAGE -f Dockerfile .
+        docker build --platform linux/amd64 -t $IMAGE -f Dockerfile.production .
         
         echo -e "${CYAN}📤 Pushing to Container Registry...${NC}"
         docker push $IMAGE

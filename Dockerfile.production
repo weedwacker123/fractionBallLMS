@@ -45,6 +45,9 @@ WORKDIR /app
 # Copy project files
 COPY --chown=django:django . .
 
+# Make entrypoint script executable
+RUN chmod +x docker-entrypoint-production.sh
+
 # Collect static files
 RUN python manage.py collectstatic --noinput --settings=fractionball.settings_production || true
 
@@ -62,19 +65,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/health/ || exit 1
 
-# Run gunicorn with optimized settings for Cloud Run
-CMD exec gunicorn fractionball.wsgi:application \
-    --bind 0.0.0.0:$PORT \
-    --workers 2 \
-    --threads 4 \
-    --worker-class gthread \
-    --worker-tmp-dir /dev/shm \
-    --timeout 120 \
-    --keep-alive 5 \
-    --max-requests 1000 \
-    --max-requests-jitter 50 \
-    --log-file - \
-    --access-logfile - \
-    --error-logfile - \
-    --capture-output
+# Use entrypoint script (runs migrations on startup, then starts gunicorn)
+ENTRYPOINT ["./docker-entrypoint-production.sh"]
 
