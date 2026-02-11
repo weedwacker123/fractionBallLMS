@@ -252,6 +252,49 @@ class FirestoreResource:
 
 
 @dataclass
+class FirestoreCategoryProxy:
+    """
+    Lightweight proxy that mimics ForumCategory for templates.
+    Maps Firestore category enum keys to display properties.
+    """
+    name: str
+    slug: str
+    color: str
+    description: str = ''
+    post_count: int = 0
+
+    CATEGORY_MAP = {
+        'question': {'name': 'Question', 'color': 'blue', 'description': 'Ask questions about activities, implementation, or math concepts.'},
+        'discussion': {'name': 'Discussion', 'color': 'green', 'description': 'Share ideas, experiences, and teaching strategies.'},
+        'resource_share': {'name': 'Resource Share', 'color': 'purple', 'description': 'Share helpful resources, worksheets, and materials.'},
+        'announcement': {'name': 'Announcement', 'color': 'red', 'description': 'Official announcements and updates from the team.'},
+    }
+
+    @classmethod
+    def from_key(cls, key: str, post_count: int = 0) -> 'FirestoreCategoryProxy':
+        info = cls.CATEGORY_MAP.get(key, {'name': key.replace('_', ' ').title(), 'color': 'gray', 'description': ''})
+        return cls(
+            name=info['name'],
+            slug=key,
+            color=info['color'],
+            description=info['description'],
+            post_count=post_count,
+        )
+
+    @classmethod
+    def get_all_categories(cls, posts: list = None) -> list:
+        counts = {}
+        if posts:
+            for post in posts:
+                cat_key = post.get('category', '') if isinstance(post, dict) else getattr(post, 'category', '')
+                if hasattr(cat_key, 'slug'):
+                    cat_key = cat_key.slug
+                if cat_key:
+                    counts[cat_key] = counts.get(cat_key, 0) + 1
+        return [cls.from_key(key, post_count=counts.get(key, 0)) for key in cls.CATEGORY_MAP]
+
+
+@dataclass
 class FirestoreCommunityPost:
     """
     Adapter class for Firestore community post documents.
@@ -259,15 +302,19 @@ class FirestoreCommunityPost:
     id: str
     title: str
     content: str = ''
-    category: str = ''
+    slug: str = ''
+    category: Any = None
     tags: List[str] = field(default_factory=list)
     author_id: str = ''
     author_name: str = ''
     is_pinned: bool = False
+    is_locked: bool = False
     view_count: int = 0
     comment_count: int = 0
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    last_activity_at: Optional[datetime] = None
+    related_activity: Any = None
     comments: List['FirestoreComment'] = field(default_factory=list)
 
     @classmethod
@@ -281,23 +328,43 @@ class FirestoreCommunityPost:
         # Handle Firestore Timestamp
         created_at = data.get('createdAt')
         if hasattr(created_at, 'isoformat'):
-            created_at = created_at
-        elif isinstance(created_at, dict):
-            # Firestore timestamp format
+            pass  # already a datetime-like
+        elif isinstance(created_at, str):
+            try:
+                created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+            except (ValueError, TypeError):
+                created_at = None
+        else:
             created_at = None
+
+        # Handle last_activity_at
+        last_activity = data.get('lastActivityAt')
+        if hasattr(last_activity, 'isoformat'):
+            last_activity_at = last_activity
+        else:
+            last_activity_at = created_at
+
+        # Build category proxy
+        category_key = data.get('category', '')
+        category_proxy = FirestoreCategoryProxy.from_key(category_key) if category_key else None
+
+        slug = data.get('slug', '') or data.get('id', '')
 
         return cls(
             id=data.get('id', ''),
             title=data.get('title', ''),
             content=data.get('content', ''),
-            category=data.get('category', ''),
+            slug=slug,
+            category=category_proxy,
             tags=data.get('tags', []),
             author_id=data.get('authorId', ''),
             author_name=data.get('authorName', 'Anonymous'),
             is_pinned=data.get('isPinned', False),
+            is_locked=data.get('isLocked', False),
             view_count=data.get('viewCount', 0),
             comment_count=data.get('commentCount', 0),
             created_at=created_at,
+            last_activity_at=last_activity_at,
             comments=comments,
         )
 
@@ -312,16 +379,46 @@ class FirestoreComment:
     author_id: str = ''
     author_name: str = ''
     created_at: Optional[datetime] = None
+    is_deleted: bool = False
+    parent_comment_id: Optional[str] = None
+    _replies_list: List[Any] = field(default_factory=list)
+
+    @property
+    def replies(self):
+        """Return manager-like object with .all() for template compatibility."""
+        items = self._replies_list
+
+        class _ReplyManager:
+            def __init__(self, reply_items):
+                self._items = reply_items
+
+            def all(self):
+                return self._items
+
+        return _ReplyManager(items)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'FirestoreComment':
         """Create a FirestoreComment from a Firestore document dict."""
+        created_at = data.get('createdAt')
+        if hasattr(created_at, 'isoformat'):
+            pass
+        elif isinstance(created_at, str):
+            try:
+                created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+            except (ValueError, TypeError):
+                created_at = None
+        else:
+            created_at = None
+
         return cls(
             id=data.get('id', ''),
             content=data.get('content', ''),
             author_id=data.get('authorId', ''),
             author_name=data.get('authorName', 'Anonymous'),
-            created_at=data.get('createdAt'),
+            created_at=created_at,
+            is_deleted=data.get('isDeleted', False),
+            parent_comment_id=data.get('parentCommentId'),
         )
 
 

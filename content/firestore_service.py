@@ -340,25 +340,72 @@ def get_resources_by_ids(resource_ids: List[str]) -> List[Dict[str, Any]]:
         return []
 
 
-def get_community_posts(limit: int = 20) -> List[Dict[str, Any]]:
+def get_community_posts(
+    limit: int = 20,
+    category: Optional[str] = None,
+    search: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """
-    Get recent community posts
+    Get recent community posts, optionally filtered.
 
     Args:
         limit: Maximum number of posts to return
+        category: Optional category key to filter by
+        search: Optional search string for title/content
 
     Returns:
         List of community posts
     """
     try:
         db = get_firestore_client()
-        docs = db.collection('communityPosts').where(filter=FieldFilter('status', '==', 'active')).order_by('createdAt', direction=firestore.Query.DESCENDING).limit(limit).stream()
+
+        # Try with status filter + ordering (requires composite index)
+        try:
+            query = db.collection('communityPosts').where(
+                filter=FieldFilter('status', '==', 'active')
+            )
+            if category:
+                query = query.where(filter=FieldFilter('category', '==', category))
+            query = query.order_by(
+                'createdAt', direction=firestore.Query.DESCENDING
+            ).limit(limit)
+            docs = list(query.stream())
+        except Exception as index_err:
+            # Fallback: fetch without ordering, sort in Python
+            logger.warning(f"Composite index may be needed, falling back to simple query: {index_err}")
+            query = db.collection('communityPosts').limit(limit)
+            docs = list(query.stream())
 
         results = []
         for doc in docs:
             data = doc.to_dict()
             data['id'] = doc.id
+
+            # Filter by status in Python (fallback path may not have it)
+            if data.get('status') and data['status'] != 'active':
+                continue
+
+            # Category filter in Python (in case Firestore filter wasn't applied)
+            if category and data.get('category') != category:
+                continue
+
+            # Search filter in Python (Firestore has no full-text search)
+            if search:
+                search_lower = search.lower()
+                title = data.get('title', '').lower()
+                content = data.get('content', '').lower()
+                if search_lower not in title and search_lower not in content:
+                    continue
+
             results.append(data)
+
+        # Sort: pinned first, then by createdAt descending
+        def sort_key(x):
+            created = x.get('createdAt')
+            ts = created.timestamp() if hasattr(created, 'timestamp') else 0
+            return (not x.get('isPinned', False), -ts)
+
+        results.sort(key=sort_key)
 
         return results
 
@@ -403,6 +450,93 @@ def get_post_with_comments(post_id: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Error fetching post with comments: {e}")
         return None
+
+
+def get_community_post_by_slug(slug: str) -> Optional[Dict[str, Any]]:
+    """
+    Get a community post by its slug, with comments.
+
+    Args:
+        slug: URL-friendly post identifier
+
+    Returns:
+        Post data with comments array, or None if not found
+    """
+    try:
+        db = get_firestore_client()
+
+        # Try with slug + status filter (may need composite index)
+        try:
+            docs = db.collection('communityPosts').where(
+                filter=FieldFilter('slug', '==', slug)
+            ).where(
+                filter=FieldFilter('status', '==', 'active')
+            ).limit(1).stream()
+            post_data = None
+            for doc in docs:
+                post_data = doc.to_dict()
+                post_data['id'] = doc.id
+                break
+        except Exception:
+            # Fallback: query by slug only, check status in Python
+            docs = db.collection('communityPosts').where(
+                filter=FieldFilter('slug', '==', slug)
+            ).limit(1).stream()
+            post_data = None
+            for doc in docs:
+                data = doc.to_dict()
+                if data.get('status', 'active') == 'active':
+                    post_data = data
+                    post_data['id'] = doc.id
+                break
+
+        if not post_data:
+            return None
+
+        # Get comments from subcollection
+        try:
+            comments_docs = db.collection('communityPosts').document(
+                post_data['id']
+            ).collection('comments').order_by('createdAt').stream()
+        except Exception:
+            # Fallback: fetch without ordering
+            comments_docs = db.collection('communityPosts').document(
+                post_data['id']
+            ).collection('comments').stream()
+
+        comments = []
+        for doc in comments_docs:
+            comment_data = doc.to_dict()
+            comment_data['id'] = doc.id
+            comments.append(comment_data)
+
+        post_data['comments'] = comments
+        return post_data
+
+    except Exception as e:
+        logger.error(f"Error fetching post by slug '{slug}': {e}")
+        return None
+
+
+def increment_post_view_count(post_id: str) -> bool:
+    """
+    Increment the view count for a community post.
+
+    Args:
+        post_id: Firestore document ID
+
+    Returns:
+        True if successful
+    """
+    try:
+        db = get_firestore_client()
+        db.collection('communityPosts').document(post_id).update({
+            'viewCount': firestore.Increment(1)
+        })
+        return True
+    except Exception as e:
+        logger.error(f"Error incrementing view count for post {post_id}: {e}")
+        return False
 
 
 def get_faqs_by_category(category: Optional[str] = None) -> List[Dict[str, Any]]:

@@ -5,11 +5,14 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods, require_POST
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
 from django.utils.text import slugify
 from django.utils import timezone
 from django.db.models import Q, Count
+from django.conf import settings
 from .models import ForumPost, ForumComment, ForumCategory, Activity
+from . import firestore_service
+from .firestore_adapters import FirestoreCommunityPost, FirestoreComment, FirestoreCategoryProxy
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,30 +25,43 @@ def community_home(request):
     # Get filter parameters
     category_slug = request.GET.get('category', '')
     search_query = request.GET.get('q', '')
-    
-    # Get all categories with post counts
-    categories = ForumCategory.objects.filter(is_active=True).annotate(
-        post_count=Count('forumpost')
-    )
-    
-    # Build query
-    posts = ForumPost.objects.select_related('author', 'category').annotate(
-        comment_count=Count('comments')
-    )
-    
-    # Apply filters
-    if category_slug:
-        posts = posts.filter(category__slug=category_slug)
-    
-    if search_query:
-        posts = posts.filter(
-            Q(title__icontains=search_query) |
-            Q(content__icontains=search_query)
+
+    if getattr(settings, 'USE_FIRESTORE', False):
+        # Firestore path
+        posts_data = firestore_service.get_community_posts(
+            limit=20,
+            category=category_slug if category_slug else None,
+            search=search_query if search_query else None,
         )
-    
-    # Order: pinned first, then by last activity
-    posts = posts.order_by('-is_pinned', '-last_activity_at')[:20]
-    
+        posts = [FirestoreCommunityPost.from_dict(p) for p in posts_data]
+
+        # Build categories with post counts from unfiltered data
+        if category_slug or search_query:
+            all_posts_data = firestore_service.get_community_posts(limit=200)
+        else:
+            all_posts_data = posts_data
+        categories = FirestoreCategoryProxy.get_all_categories(all_posts_data)
+    else:
+        # Django ORM path (fallback)
+        categories = ForumCategory.objects.filter(is_active=True).annotate(
+            post_count=Count('forumpost')
+        )
+
+        posts = ForumPost.objects.select_related('author', 'category').annotate(
+            comment_count=Count('comments')
+        )
+
+        if category_slug:
+            posts = posts.filter(category__slug=category_slug)
+
+        if search_query:
+            posts = posts.filter(
+                Q(title__icontains=search_query) |
+                Q(content__icontains=search_query)
+            )
+
+        posts = posts.order_by('-is_pinned', '-last_activity_at')[:20]
+
     context = {
         'posts': posts,
         'categories': categories,
@@ -59,25 +75,63 @@ def post_detail(request, slug):
     """
     Individual post detail page with comments
     """
-    post = get_object_or_404(
-        ForumPost.objects.select_related('author', 'category'),
-        slug=slug
-    )
-    
-    # Increment view count
-    post.view_count += 1
-    post.save(update_fields=['view_count'])
-    
-    # Get comments with author info
-    comments = post.comments.filter(
-        is_deleted=False,
-        parent_comment=None  # Top-level comments only
-    ).select_related('author').prefetch_related('replies__author')
-    
+    use_firestore = getattr(settings, 'USE_FIRESTORE', False)
+    used_firestore = False
+
+    if use_firestore:
+        # Firestore path
+        post_data = firestore_service.get_community_post_by_slug(slug)
+        if post_data:
+            used_firestore = True
+            post = FirestoreCommunityPost.from_dict(post_data)
+
+            # Increment view count (fire-and-forget)
+            try:
+                firestore_service.increment_post_view_count(post.id)
+                post.view_count += 1
+            except Exception:
+                pass
+
+            # Build threaded comments
+            all_comments = post.comments
+            top_level = []
+            replies_map = {}
+
+            for comment in all_comments:
+                if comment.is_deleted:
+                    continue
+                if comment.parent_comment_id:
+                    replies_map.setdefault(comment.parent_comment_id, []).append(comment)
+                else:
+                    top_level.append(comment)
+
+            for comment in top_level:
+                comment._replies_list = replies_map.get(comment.id, [])
+
+            comments = top_level
+            can_comment = not post.is_locked
+
+    if not used_firestore:
+        # Django ORM path (also used as fallback when Firestore post not found)
+        post = get_object_or_404(
+            ForumPost.objects.select_related('author', 'category'),
+            slug=slug
+        )
+
+        post.view_count += 1
+        post.save(update_fields=['view_count'])
+
+        comments = post.comments.filter(
+            is_deleted=False,
+            parent_comment=None
+        ).select_related('author').prefetch_related('replies__author')
+
+        can_comment = not post.is_locked
+
     context = {
         'post': post,
         'comments': comments,
-        'can_comment': not post.is_locked,
+        'can_comment': can_comment,
     }
     return render(request, 'community_post_detail.html', context)
 
@@ -157,7 +211,7 @@ def create_post(request):
             except Exception as e:
                 logger.warning(f"Failed to sync post to Firestore: {e}")
             messages.success(request, f'Post "{title}" created successfully!')
-            return redirect('community-post-detail', slug=post.slug)
+            return redirect('v4:community-post-detail', slug=post.slug)
             
         except Exception as e:
             logger.error(f"Failed to create post: {e}")
@@ -401,7 +455,7 @@ def edit_post(request, post_id):
     # Check permission
     if post.author != request.user:
         messages.error(request, 'You can only edit your own posts')
-        return redirect('community-post-detail', slug=post.slug)
+        return redirect('v4:community-post-detail', slug=post.slug)
     
     if request.method == 'POST':
         try:
@@ -441,7 +495,7 @@ def edit_post(request, post_id):
                 logger.warning(f"Failed to sync post update to Firestore: {e}")
 
             messages.success(request, 'Post updated successfully!')
-            return redirect('community-post-detail', slug=post.slug)
+            return redirect('v4:community-post-detail', slug=post.slug)
             
         except Exception as e:
             logger.error(f"Failed to update post: {e}")
