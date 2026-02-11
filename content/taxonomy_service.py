@@ -53,6 +53,12 @@ def _get_firestore_client():
     return get_firestore_client()
 
 
+def _field_filter(field, op, value):
+    """Create a FieldFilter for Firestore queries (avoids deprecated positional args)"""
+    from google.cloud.firestore_v1.base_query import FieldFilter
+    return FieldFilter(field, op, value)
+
+
 def _fetch_taxonomy_from_firestore(taxonomy_type: str) -> List[Dict[str, Any]]:
     """
     Fetch taxonomy values from Firestore by type
@@ -65,7 +71,7 @@ def _fetch_taxonomy_from_firestore(taxonomy_type: str) -> List[Dict[str, Any]]:
     """
     try:
         db = _get_firestore_client()
-        docs = db.collection('taxonomies').where('type', '==', taxonomy_type).where('active', '==', True).order_by('displayOrder').stream()
+        docs = db.collection('taxonomies').where(filter=_field_filter('type', '==', taxonomy_type)).where(filter=_field_filter('active', '==', True)).order_by('displayOrder').stream()
 
         all_values = []
         for doc in docs:
@@ -260,6 +266,77 @@ def is_valid_court_type(court_type: str) -> bool:
     return court_type in valid_keys
 
 
+def get_all_taxonomy_categories() -> List[Dict[str, Any]]:
+    """
+    Discover and return ALL active taxonomy categories from Firestore.
+    Auto-discovers new taxonomy types added in the CMS without code changes.
+
+    Returns:
+        List of dicts sorted by displayOrder:
+        [
+            {'type': 'grade', 'name': 'Grade Level', 'displayOrder': 1, 'values': [...]},
+            {'type': 'classroom', 'name': 'Classroom', 'displayOrder': 2, 'values': [...]},
+            ...
+        ]
+    """
+    cache_key = 'taxonomy:all_categories'
+
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        db = _get_firestore_client()
+        # Query only by active field (single-field index, no composite needed)
+        # Sorting is done in Python to avoid composite index requirement
+        docs = db.collection('taxonomies').where(
+            filter=_field_filter('active', '==', True)
+        ).stream()
+
+        categories_map = {}
+        for doc in docs:
+            data = doc.to_dict()
+            tax_type = data.get('type', '')
+            if not tax_type:
+                continue
+
+            if tax_type not in categories_map:
+                categories_map[tax_type] = {
+                    'type': tax_type,
+                    'name': data.get('name', tax_type.title()),
+                    'displayOrder': data.get('displayOrder', 999),
+                    'values': [],
+                }
+
+            values = data.get('values', [])
+            categories_map[tax_type]['values'].extend(values)
+
+        categories = sorted(
+            categories_map.values(),
+            key=lambda c: c['displayOrder']
+        )
+
+        if not categories:
+            logger.warning("No active taxonomies found - using fallbacks")
+            categories = [
+                {'type': 'grade', 'name': 'Grade Level', 'displayOrder': 1, 'values': FALLBACK_GRADES},
+                {'type': 'court', 'name': 'Courts', 'displayOrder': 2, 'values': FALLBACK_COURT_TYPES},
+                {'type': 'topic', 'name': 'Topic', 'displayOrder': 3, 'values': FALLBACK_TOPICS},
+            ]
+
+        cache.set(cache_key, categories, TAXONOMY_CACHE_TTL)
+        logger.info(f"Fetched {len(categories)} taxonomy categories")
+        return categories
+
+    except Exception as e:
+        logger.error(f"Error fetching all taxonomy categories: {e}")
+        return [
+            {'type': 'grade', 'name': 'Grade Level', 'displayOrder': 1, 'values': FALLBACK_GRADES},
+            {'type': 'court', 'name': 'Courts', 'displayOrder': 2, 'values': FALLBACK_COURT_TYPES},
+            {'type': 'topic', 'name': 'Topic', 'displayOrder': 3, 'values': FALLBACK_TOPICS},
+        ]
+
+
 def refresh_cache():
     """
     Force refresh all taxonomy caches
@@ -268,11 +345,13 @@ def refresh_cache():
     cache.delete('taxonomy:grades')
     cache.delete('taxonomy:topics')
     cache.delete('taxonomy:courtTypes')
+    cache.delete('taxonomy:all_categories')
 
     # Pre-populate caches
     get_grade_levels()
     get_topics()
     get_court_types()
+    get_all_taxonomy_categories()
 
     logger.info("Taxonomy caches refreshed")
 

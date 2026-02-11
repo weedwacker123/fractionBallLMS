@@ -91,7 +91,7 @@
         </div>
     </div>
     
-    <!-- Filters Section -->
+    <!-- Filters Section (dynamically generated from CMS taxonomy data) -->
     <div class="mb-6 sm:mb-8">
         <div class="flex items-center gap-2 mb-3">
             <span class="text-sm font-medium text-gray-700 whitespace-nowrap">Filters:</span>
@@ -99,47 +99,35 @@
                 Clear all
             </button>
         </div>
-        
+
         <div class="filter-scroll flex flex-nowrap sm:flex-wrap items-center gap-2 sm:gap-3 pb-2" id="filters-container">
-            <!-- Grade Filter Dropdown -->
-            <div class="relative inline-block flex-shrink-0">
-                <button id="grade-dropdown" type="button" class="inline-flex items-center px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-full text-sm font-medium text-gray-900 hover:bg-gray-50 transition-colors" data-grade="{{ selected_grade }}">
-                    <span id="grade-label">Grade {{ selected_grade|default:"All" }}</span>
-                    <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {% for category in taxonomy_categories %}
+            <div class="relative inline-block flex-shrink-0" data-filter-type="{{ category.type }}">
+                <button type="button"
+                        class="taxonomy-dropdown inline-flex items-center px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-full text-sm font-medium text-gray-900 hover:bg-gray-50 transition-colors"
+                        data-taxonomy-type="{{ category.type }}">
+                    <span class="dropdown-label">{{ category.name }}: All</span>
+                    <svg class="ml-2 w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </button>
-                <div id="grade-menu" class="hidden absolute top-full left-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
-                    <button type="button" class="grade-option w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" data-grade="">All Grades</button>
-                    {% for grade in grade_choices %}
-                    <button type="button" class="grade-option w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" data-grade="{{ grade }}">
-                        {% if grade == 'K' %}Kindergarten{% else %}Grade {{ grade }}{% endif %}
+                <div class="taxonomy-menu hidden absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20 max-h-64 overflow-y-auto">
+                    <button type="button"
+                            class="taxonomy-option w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            data-taxonomy-type="{{ category.type }}"
+                            data-value="">
+                        All
+                    </button>
+                    {% for value in category.values %}
+                    <button type="button"
+                            class="taxonomy-option w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            data-taxonomy-type="{{ category.type }}"
+                            data-value="{{ value.key }}">
+                        {{ value.label }}
                     </button>
                     {% endfor %}
                 </div>
             </div>
-            
-            <!-- Location Filters -->
-            <button type="button" class="location-filter flex-shrink-0 px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors inline-flex items-center" data-location="classroom">
-                <svg class="mr-1 w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3z"/>
-                </svg>
-                <span class="hidden sm:inline">Classroom</span>
-                <span class="sm:hidden">Class</span>
-            </button>
-            
-            <button type="button" class="location-filter flex-shrink-0 px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors inline-flex items-center" data-location="court">
-                <svg class="mr-1 w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
-                </svg>
-                Court
-            </button>
-            
-            <!-- Topic Filters (Dynamic) -->
-            {% for topic in all_topics %}
-            <button type="button" class="topic-filter flex-shrink-0 px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap" data-topic="{{ topic }}">
-                {{ topic }}
-            </button>
             {% endfor %}
         </div>
     </div>
@@ -176,20 +164,19 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // State
-    let currentFilters = {
-        grade: '{{ selected_grade|default:"" }}',
-        location: '{{ selected_location|default:"" }}',
-        topics: {{ selected_topics|safe|default:"[]" }},
-        q: '{{ search_query|default:"" }}'
-    };
-    
+    // Dynamic taxonomy data from server
+    const taxonomyCategories = JSON.parse('{{ taxonomy_categories_json|escapejs }}');
+    const initialFilters = JSON.parse('{{ selected_filters_json|escapejs }}');
+
+    // State: one key per taxonomy type + search query
+    let currentFilters = { q: '{{ search_query|default:"" }}' };
+    taxonomyCategories.forEach(cat => {
+        currentFilters[cat.type] = initialFilters[cat.type] || '';
+    });
+
     // Elements
     const searchInput = document.getElementById('search-input');
     const searchBtn = document.getElementById('search-btn');
-    const gradeDropdown = document.getElementById('grade-dropdown');
-    const gradeMenu = document.getElementById('grade-menu');
-    const gradeLabel = document.getElementById('grade-label');
     const activitiesGrid = document.getElementById('activities-grid');
     const loadingOverlay = document.getElementById('loading-overlay');
     const clearFiltersBtn = document.getElementById('clear-filters');
@@ -197,115 +184,92 @@ document.addEventListener('DOMContentLoaded', function() {
     const activityCount = document.getElementById('activity-count');
     const activityPlural = document.getElementById('activity-plural');
     const gradeFilterText = document.getElementById('grade-filter-text');
-    
+
     // Debounce function
     function debounce(func, wait) {
         let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
+        return function(...args) {
             clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
+            timeout = setTimeout(() => func(...args), wait);
         };
     }
-    
+
     // Update URL without page reload
     function updateURL() {
         const params = new URLSearchParams();
-        if (currentFilters.grade) params.set('grade', currentFilters.grade);
-        if (currentFilters.location) params.set('location', currentFilters.location);
         if (currentFilters.q) params.set('q', currentFilters.q);
-        currentFilters.topics.forEach(t => params.append('topic', t));
-        
+        taxonomyCategories.forEach(cat => {
+            if (currentFilters[cat.type]) {
+                params.set('filter_' + cat.type, currentFilters[cat.type]);
+            }
+        });
         const newURL = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
         window.history.pushState({}, '', newURL);
     }
-    
-    // Update filter UI
+
+    // Update filter UI (dropdown labels and active styling)
     function updateFilterUI() {
-        // Grade button
-        if (currentFilters.grade) {
-            gradeDropdown.classList.add('bg-yellow-100', 'border-yellow-300');
-            gradeDropdown.classList.remove('bg-white', 'border-gray-300');
-            gradeLabel.textContent = currentFilters.grade === 'K' ? 'Kindergarten' : 'Grade ' + currentFilters.grade;
-        } else {
-            gradeDropdown.classList.remove('bg-yellow-100', 'border-yellow-300');
-            gradeDropdown.classList.add('bg-white', 'border-gray-300');
-            gradeLabel.textContent = 'Grade All';
-        }
-        
-        // Location buttons
-        document.querySelectorAll('.location-filter').forEach(btn => {
-            if (btn.dataset.location === currentFilters.location) {
+        document.querySelectorAll('.taxonomy-dropdown').forEach(btn => {
+            const type = btn.dataset.taxonomyType;
+            const selectedValue = currentFilters[type] || '';
+            const label = btn.querySelector('.dropdown-label');
+            const category = taxonomyCategories.find(c => c.type === type);
+
+            if (selectedValue) {
                 btn.classList.add('bg-yellow-100', 'border-yellow-300');
                 btn.classList.remove('bg-white', 'border-gray-300');
+                const valueObj = category && category.values.find(v => v.key === selectedValue);
+                label.textContent = (category ? category.name : type) + ': ' + (valueObj ? valueObj.label : selectedValue);
             } else {
                 btn.classList.remove('bg-yellow-100', 'border-yellow-300');
                 btn.classList.add('bg-white', 'border-gray-300');
+                label.textContent = (category ? category.name : type) + ': All';
             }
         });
-        
-        // Topic buttons
-        document.querySelectorAll('.topic-filter').forEach(btn => {
-            if (currentFilters.topics.includes(btn.dataset.topic)) {
-                btn.classList.add('bg-yellow-100', 'border-yellow-300');
-                btn.classList.remove('bg-white', 'border-gray-300');
-            } else {
-                btn.classList.remove('bg-yellow-100', 'border-yellow-300');
-                btn.classList.add('bg-white', 'border-gray-300');
-            }
-        });
-        
-        // Clear filters button
-        const hasFilters = currentFilters.grade || currentFilters.location || currentFilters.topics.length > 0 || currentFilters.q;
+
+        // Show/hide clear button
+        const hasFilters = currentFilters.q || taxonomyCategories.some(cat => currentFilters[cat.type]);
         clearFiltersBtn.classList.toggle('hidden', !hasFilters);
-        
-        // Update grade filter text
-        if (currentFilters.grade) {
-            gradeFilterText.textContent = 'for ' + (currentFilters.grade === 'K' ? 'Kindergarten' : 'Grade ' + currentFilters.grade);
-        } else {
-            gradeFilterText.textContent = '';
+
+        // Update grade filter text in results count
+        if (gradeFilterText) {
+            if (currentFilters.grade) {
+                gradeFilterText.textContent = 'for ' + (currentFilters.grade === 'K' ? 'Kindergarten' : 'Grade ' + currentFilters.grade);
+            } else {
+                gradeFilterText.textContent = '';
+            }
         }
     }
-    
+
     // Fetch activities via AJAX
     async function fetchActivities() {
         loadingOverlay.classList.remove('hidden');
-        
+
         const params = new URLSearchParams();
-        if (currentFilters.grade) params.set('grade', currentFilters.grade);
-        if (currentFilters.location) params.set('location', currentFilters.location);
         if (currentFilters.q) params.set('q', currentFilters.q);
-        currentFilters.topics.forEach(t => params.append('topic', t));
-        
+        taxonomyCategories.forEach(cat => {
+            if (currentFilters[cat.type]) {
+                params.set('filter_' + cat.type, currentFilters[cat.type]);
+            }
+        });
+
         try {
             const response = await fetch('/search/?' + params.toString(), {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
             const data = await response.json();
-            
-            // Update activities grid
             renderActivities(data.activities);
-            
-            // Update count
             activityCount.textContent = data.activities.length;
             activityPlural.textContent = data.activities.length === 1 ? 'y' : 'ies';
-            
-            // Update URL
             updateURL();
             updateFilterUI();
-            
         } catch (error) {
             console.error('Error fetching activities:', error);
         } finally {
             loadingOverlay.classList.add('hidden');
         }
     }
-    
+
     // Render activities
     function renderActivities(activities) {
         if (activities.length === 0) {
@@ -321,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
             return;
         }
-        
+
         activitiesGrid.innerHTML = activities.map((activity, index) => `
             <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200 overflow-hidden activity-card fade-in" style="animation-delay: ${index * 50}ms">
                 <div class="p-4 sm:p-6">
@@ -329,23 +293,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         <span class="text-xs font-semibold text-gray-500 uppercase">Activity ${activity.activity_number}</span>
                         <span class="text-xs font-medium text-blue-600 px-2 py-1 bg-blue-50 rounded">${activity.grade === 'K' ? 'Kindergarten' : 'Grade ' + activity.grade}</span>
                     </div>
-                    
+
                     <div class="flex justify-center mb-4">
                         <div class="w-20 h-20 sm:w-24 sm:h-24 bg-gray-100 rounded-lg flex items-center justify-center">
                             ${getActivityIcon(activity.icon_type)}
                         </div>
                     </div>
-                    
+
                     <h3 class="text-lg sm:text-xl font-bold text-gray-900 text-center mb-3">${activity.title}</h3>
-                    
+
                     <p class="text-sm text-gray-600 text-center mb-4 line-clamp-2">${activity.description}</p>
-                    
+
                     <div class="flex flex-wrap gap-1 sm:gap-2 justify-center mb-4">
                         ${activity.topics.map(topic => `
                             <span class="px-2 sm:px-3 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full border border-gray-300">${topic}</span>
                         `).join('')}
                     </div>
-                    
+
                     <a href="${activity.url}" class="block w-full text-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">
                         View Activity
                     </a>
@@ -353,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `).join('');
     }
-    
+
     // Get activity icon SVG
     function getActivityIcon(iconType) {
         const icons = {
@@ -384,70 +348,59 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         return icons[iconType] || `<svg class="w-12 h-12 sm:w-16 sm:h-16 text-gray-800" viewBox="0 0 100 100" fill="currentColor"><circle cx="50" cy="50" r="40"/></svg>`;
     }
-    
+
     // Clear all filters
     window.clearAllFilters = function() {
-        currentFilters = { grade: '', location: '', topics: [], q: '' };
+        currentFilters.q = '';
+        taxonomyCategories.forEach(cat => { currentFilters[cat.type] = ''; });
         searchInput.value = '';
         fetchActivities();
     };
-    
+
     // Event Listeners
-    
-    // Grade dropdown toggle
-    gradeDropdown.addEventListener('click', function(e) {
-        e.stopPropagation();
-        gradeMenu.classList.toggle('hidden');
+
+    // Toggle dropdown menus
+    document.querySelectorAll('.taxonomy-dropdown').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            // Close all other menus first
+            document.querySelectorAll('.taxonomy-menu').forEach(menu => {
+                if (menu !== this.closest('[data-filter-type]').querySelector('.taxonomy-menu')) {
+                    menu.classList.add('hidden');
+                }
+            });
+            // Toggle this menu
+            const menu = this.closest('[data-filter-type]').querySelector('.taxonomy-menu');
+            menu.classList.toggle('hidden');
+        });
     });
-    
-    // Close dropdown when clicking outside
+
+    // Close all menus when clicking outside
     document.addEventListener('click', function(e) {
-        if (!gradeDropdown.contains(e.target)) {
-            gradeMenu.classList.add('hidden');
+        if (!e.target.closest('[data-filter-type]')) {
+            document.querySelectorAll('.taxonomy-menu').forEach(menu => {
+                menu.classList.add('hidden');
+            });
         }
     });
-    
-    // Grade selection
-    document.querySelectorAll('.grade-option').forEach(btn => {
-        btn.addEventListener('click', function() {
-            currentFilters.grade = this.dataset.grade;
-            gradeMenu.classList.add('hidden');
+
+    // Handle option selection
+    document.querySelectorAll('.taxonomy-option').forEach(option => {
+        option.addEventListener('click', function() {
+            const type = this.dataset.taxonomyType;
+            const value = this.dataset.value;
+            currentFilters[type] = value;
+            this.closest('.taxonomy-menu').classList.add('hidden');
             fetchActivities();
         });
     });
-    
-    // Location filters
-    document.querySelectorAll('.location-filter').forEach(btn => {
-        btn.addEventListener('click', function() {
-            if (currentFilters.location === this.dataset.location) {
-                currentFilters.location = '';
-            } else {
-                currentFilters.location = this.dataset.location;
-            }
-            fetchActivities();
-        });
-    });
-    
-    // Topic filters
-    document.querySelectorAll('.topic-filter').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const topic = this.dataset.topic;
-            const index = currentFilters.topics.indexOf(topic);
-            if (index > -1) {
-                currentFilters.topics.splice(index, 1);
-            } else {
-                currentFilters.topics.push(topic);
-            }
-            fetchActivities();
-        });
-    });
-    
+
     // Search input
     const debouncedSearch = debounce(function() {
         currentFilters.q = searchInput.value;
         fetchActivities();
     }, 300);
-    
+
     searchInput.addEventListener('input', debouncedSearch);
     searchInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
@@ -456,22 +409,22 @@ document.addEventListener('DOMContentLoaded', function() {
             fetchActivities();
         }
     });
-    
+
     searchBtn.addEventListener('click', function() {
         currentFilters.q = searchInput.value;
         fetchActivities();
     });
-    
+
     // Clear filters buttons
     clearFiltersBtn.addEventListener('click', clearAllFilters);
     if (clearFiltersEmpty) {
         clearFiltersEmpty.addEventListener('click', clearAllFilters);
     }
-    
+
     // Initial UI update
     updateFilterUI();
-    
-    console.log('Fraction Ball AJAX filtering initialized');
+
+    console.log('Fraction Ball dynamic taxonomy filtering initialized with', taxonomyCategories.length, 'categories');
 });
 </script>
 {% endblock %}

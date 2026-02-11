@@ -7,6 +7,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from django.utils import timezone
 from firebase_admin import firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 import firebase_admin
 
 logger = logging.getLogger(__name__)
@@ -109,7 +110,7 @@ def get_published_activities() -> List[Dict[str, Any]]:
     """
     try:
         db = get_firestore_client()
-        docs = db.collection('activities').where('status', '==', 'published').stream()
+        docs = db.collection('activities').where(filter=FieldFilter('status', '==', 'published')).stream()
 
         results = []
         for doc in docs:
@@ -129,7 +130,8 @@ def query_activities(
     grade: Optional[str] = None,
     topics: Optional[List[str]] = None,
     location: Optional[str] = None,
-    search: Optional[str] = None
+    search: Optional[str] = None,
+    extra_taxonomy: Optional[Dict[str, str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Query activities with filters
@@ -139,19 +141,30 @@ def query_activities(
         topics: List of topic tags to filter by
         location: 'classroom', 'court', or 'both'
         search: Search query for title/description
+        extra_taxonomy: Dict of additional taxonomy type->value filters
+                        (e.g., {'standard': 'CCSS.3.NF.1'})
 
     Returns:
         List of matching activities
     """
     try:
         db = get_firestore_client()
-        query = db.collection('activities').where('status', '==', 'published')
+        query = db.collection('activities').where(filter=FieldFilter('status', '==', 'published'))
 
         # Filter by grade level
         if grade:
             # Convert grade to number for Firestore (K=0, 1=1, etc.)
             grade_num = 0 if grade == 'K' else int(grade)
-            query = query.where('gradeLevel', 'array_contains', grade_num)
+            query = query.where(filter=FieldFilter('gradeLevel', 'array_contains', grade_num))
+
+        # Build key→label map from taxonomy data so we can match filter keys
+        # against activity values (which store labels, not keys)
+        key_to_label = {}
+        if topics or extra_taxonomy:
+            from content.taxonomy_service import get_all_taxonomy_categories
+            for cat in get_all_taxonomy_categories():
+                for val in cat.get('values', []):
+                    key_to_label[val['key']] = val.get('label', val['key'])
 
         # Execute query
         docs = query.stream()
@@ -163,7 +176,7 @@ def query_activities(
 
             # Apply location filter in Python (Firestore limitation on multiple array_contains)
             if location:
-                activity_location = data.get('taxonomy', {}).get('courtType', '')
+                activity_location = data.get('location', '') or data.get('taxonomy', {}).get('courtType', '')
                 if location == 'court' and 'court' not in activity_location.lower():
                     continue
                 if location == 'classroom' and 'classroom' not in activity_location.lower():
@@ -173,8 +186,21 @@ def query_activities(
             if topics:
                 activity_tags = data.get('tags', [])
                 activity_topic = data.get('taxonomy', {}).get('topic', '')
-                all_topics = activity_tags + ([activity_topic] if activity_topic else [])
-                if not any(t in all_topics for t in topics):
+                all_activity_values = activity_tags + ([activity_topic] if activity_topic else [])
+                # Normalize: lowercase all activity values for comparison
+                all_activity_lower = [v.lower() for v in all_activity_values if v]
+                # Check if any filter topic matches (by key, label, or lowercase)
+                matched = False
+                for t in topics:
+                    t_lower = t.lower()
+                    label = key_to_label.get(t, '')
+                    if (t in all_activity_values
+                            or t_lower in all_activity_lower
+                            or label in all_activity_values
+                            or label.lower() in all_activity_lower):
+                        matched = True
+                        break
+                if not matched:
                     continue
 
             # Apply search filter in Python
@@ -183,6 +209,34 @@ def query_activities(
                 title = data.get('title', '').lower()
                 description = data.get('description', '').lower()
                 if search_lower not in title and search_lower not in description:
+                    continue
+
+            # Apply extra taxonomy filters (auto-discovered taxonomy types)
+            if extra_taxonomy:
+                activity_taxonomy = data.get('taxonomy', {})
+                skip = False
+                for tax_type, tax_value in extra_taxonomy.items():
+                    activity_tax_value = activity_taxonomy.get(tax_type, '')
+                    # Resolve filter key to label for comparison
+                    filter_label = key_to_label.get(tax_value, '')
+                    if isinstance(activity_tax_value, list):
+                        act_lower = [v.lower() for v in activity_tax_value if isinstance(v, str)]
+                        if (tax_value not in activity_tax_value
+                                and tax_value.lower() not in act_lower
+                                and filter_label not in activity_tax_value
+                                and filter_label.lower() not in act_lower):
+                            skip = True
+                            break
+                    elif isinstance(activity_tax_value, str):
+                        act_lower = activity_tax_value.lower()
+                        if (tax_value.lower() != act_lower
+                                and filter_label.lower() != act_lower):
+                            skip = True
+                            break
+                    else:
+                        skip = True
+                        break
+                if skip:
                     continue
 
             results.append(data)
@@ -210,7 +264,7 @@ def get_activity_by_slug(slug: str) -> Optional[Dict[str, Any]]:
     """
     try:
         db = get_firestore_client()
-        docs = db.collection('activities').where('slug', '==', slug).where('status', '==', 'published').limit(1).stream()
+        docs = db.collection('activities').where(filter=FieldFilter('slug', '==', slug)).where(filter=FieldFilter('status', '==', 'published')).limit(1).stream()
 
         for doc in docs:
             data = doc.to_dict()
@@ -298,7 +352,7 @@ def get_community_posts(limit: int = 20) -> List[Dict[str, Any]]:
     """
     try:
         db = get_firestore_client()
-        docs = db.collection('communityPosts').where('status', '==', 'active').order_by('createdAt', direction=firestore.Query.DESCENDING).limit(limit).stream()
+        docs = db.collection('communityPosts').where(filter=FieldFilter('status', '==', 'active')).order_by('createdAt', direction=firestore.Query.DESCENDING).limit(limit).stream()
 
         results = []
         for doc in docs:
@@ -363,10 +417,10 @@ def get_faqs_by_category(category: Optional[str] = None) -> List[Dict[str, Any]]
     """
     try:
         db = get_firestore_client()
-        query = db.collection('faqs').where('status', '==', 'published')
+        query = db.collection('faqs').where(filter=FieldFilter('status', '==', 'published'))
 
         if category:
-            query = query.where('category', '==', category)
+            query = query.where(filter=FieldFilter('category', '==', category))
 
         query = query.order_by('displayOrder')
         docs = query.stream()

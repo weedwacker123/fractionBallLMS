@@ -34,7 +34,9 @@ def _fetch_menu_items_from_firestore(location: str) -> List[Dict[str, Any]]:
         db = _get_firestore_client()
 
         # Fetch all active menu items for this location
-        docs = db.collection('menuItems').where('location', '==', location).where('active', '==', True).order_by('displayOrder').stream()
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        # Query without order_by to avoid composite index requirement; sort in Python
+        docs = db.collection('menuItems').where(filter=FieldFilter('location', '==', location)).where(filter=FieldFilter('active', '==', True)).stream()
 
         items = []
         items_by_id = {}
@@ -54,6 +56,9 @@ def _fetch_menu_items_from_firestore(location: str) -> List[Dict[str, Any]]:
             }
             items.append(item)
             items_by_id[doc.id] = item
+
+        # Sort items by displayOrder (done in Python to avoid composite index)
+        items.sort(key=lambda x: x.get('displayOrder', 0))
 
         # Build nested structure
         root_items = []

@@ -12,6 +12,7 @@ from .models import VideoAsset, Resource, Activity, AssetView, AssetDownload
 from . import firestore_service
 from . import taxonomy_service
 from .firestore_adapters import FirestoreActivity, FirestoreVideo, FirestoreResource
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -42,11 +43,21 @@ def home(request):
     Main home page with activity cards - dynamically loaded from database.
     Publicly accessible.
     """
-    # Get filter parameters
-    selected_grade = request.GET.get('grade', '5')
-    selected_topics = request.GET.getlist('topic', [])
-    selected_location = request.GET.get('location', '')
+    # Get filter parameters (support both filter_* and legacy param names)
+    selected_grade = request.GET.get('filter_grade', '') or request.GET.get('grade', '5')
+    selected_topic = request.GET.get('filter_topic', '')
+    selected_topics = [selected_topic] if selected_topic else request.GET.getlist('topic', [])
+    selected_location = request.GET.get('filter_court', '') or request.GET.get('filter_classroom', '') or request.GET.get('location', '')
     search_query = request.GET.get('q', '')
+
+    # Gather all filter_* params for extra taxonomy filtering
+    extra_taxonomy = {}
+    known_filter_keys = {'filter_grade', 'filter_topic', 'filter_court', 'filter_classroom'}
+    for key in request.GET:
+        if key.startswith('filter_') and key not in known_filter_keys:
+            value = request.GET.get(key, '')
+            if value:
+                extra_taxonomy[key[7:]] = value
 
     if getattr(settings, 'USE_FIRESTORE', False):
         # Use Firestore for data
@@ -54,7 +65,8 @@ def home(request):
             grade=selected_grade if selected_grade else None,
             topics=selected_topics if selected_topics else None,
             location=selected_location if selected_location else None,
-            search=search_query if search_query else None
+            search=search_query if search_query else None,
+            extra_taxonomy=extra_taxonomy if extra_taxonomy else None,
         )
         activities = [FirestoreActivity.from_dict(a) for a in activities_data]
 
@@ -101,8 +113,20 @@ def home(request):
             all_topics.update(activity.topics if isinstance(activity.topics, list) else [])
         all_topics = sorted(list(all_topics))
 
-    # Get taxonomies from CMS (cached)
+    # Get dynamic taxonomy categories from CMS (cached, auto-discovers new types)
+    taxonomy_categories = taxonomy_service.get_all_taxonomy_categories()
     taxonomies = taxonomy_service.get_all_taxonomies()
+
+    # Build selected filters dict for JS initialization
+    selected_filters = {'grade': selected_grade, 'q': search_query}
+    if selected_location:
+        # Map location to whichever taxonomy type it belongs to (court or classroom)
+        selected_filters['court'] = selected_location
+        selected_filters['classroom'] = selected_location
+    if selected_topics:
+        selected_filters['topic'] = selected_topics[0] if selected_topics else ''
+    # Include any extra taxonomy filters
+    selected_filters.update(extra_taxonomy)
 
     context = {
         'activities': activities,
@@ -111,6 +135,11 @@ def home(request):
         'selected_location': selected_location,
         'search_query': search_query,
         'all_topics': all_topics,
+        # Dynamic taxonomy categories for dropdown generation
+        'taxonomy_categories': taxonomy_categories,
+        'taxonomy_categories_json': json.dumps(taxonomy_categories),
+        'selected_filters_json': json.dumps(selected_filters),
+        # Keep backward-compatible vars
         'grade_choices': taxonomy_service.get_grade_keys(),
         'grade_levels': taxonomies['grades'],
         'topic_taxonomies': taxonomies['topics'],
@@ -323,17 +352,39 @@ def my_notes(request):
     return render(request, 'notes.html')
 
 
-@login_required
 def search_activities(request):
     """
     AJAX endpoint for searching/filtering activities.
-    Returns JSON for dynamic updates. Requires authentication.
+    Returns JSON for dynamic updates. Public access (matches home page).
+    Accepts generic filter_<type>=<value> params for dynamic taxonomy filtering.
     """
-    # Get search parameters
     query = request.GET.get('q', '')
-    grade = request.GET.get('grade', '')
-    topics = request.GET.getlist('topic', [])
-    location = request.GET.get('location', '')
+
+    # Extract dynamic filter parameters (filter_grade, filter_court, filter_topic, etc.)
+    filters = {}
+    for key in request.GET:
+        if key.startswith('filter_'):
+            tax_type = key[7:]  # strip 'filter_' prefix
+            value = request.GET.get(key, '')
+            if value:
+                filters[tax_type] = value
+
+    # Also support legacy parameter names for backward compatibility
+    if not filters.get('grade') and request.GET.get('grade'):
+        filters['grade'] = request.GET.get('grade')
+    if not filters.get('court') and not filters.get('classroom') and request.GET.get('location'):
+        filters['court'] = request.GET.get('location')
+    if not filters.get('topic') and request.GET.getlist('topic'):
+        filters['topic'] = request.GET.getlist('topic')[0]
+
+    # Map to existing query_activities parameters
+    grade = filters.pop('grade', '')
+    location = filters.pop('court', '') or filters.pop('classroom', '')
+    topic_val = filters.pop('topic', '')
+    topics = [topic_val] if topic_val else []
+
+    # Remaining filters are extra taxonomy filters
+    extra_taxonomy = filters if filters else None
 
     if getattr(settings, 'USE_FIRESTORE', False):
         # Use Firestore for data
@@ -341,7 +392,8 @@ def search_activities(request):
             grade=grade if grade else None,
             topics=topics if topics else None,
             location=location if location else None,
-            search=query if query else None
+            search=query if query else None,
+            extra_taxonomy=extra_taxonomy,
         )
         activities = [FirestoreActivity.from_dict(a) for a in activities_data]
     else:
