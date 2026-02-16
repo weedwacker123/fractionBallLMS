@@ -263,6 +263,11 @@ class FirestoreCategoryProxy:
     description: str = ''
     post_count: int = 0
 
+    @property
+    def id(self):
+        """Template compatibility - categories use slug as ID."""
+        return self.slug
+
     CATEGORY_MAP = {
         'question': {'name': 'Question', 'color': 'blue', 'description': 'Ask questions about activities, implementation, or math concepts.'},
         'discussion': {'name': 'Discussion', 'color': 'green', 'description': 'Share ideas, experiences, and teaching strategies.'},

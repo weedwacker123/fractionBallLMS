@@ -1,8 +1,8 @@
 // Authentication helper functions for Fraction Ball LMS
-import { 
+import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInWithPopup,
+  signInWithCredential,
   GoogleAuthProvider,
   OAuthProvider,
   signOut,
@@ -11,12 +11,7 @@ import {
 } from 'firebase/auth';
 import { auth } from './firebase-config.js';
 
-// Google Auth Provider
-const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('email');
-googleProvider.addScope('profile');
-
-// Microsoft Auth Provider
+// Microsoft Auth Provider (kept for potential future use)
 const microsoftProvider = new OAuthProvider('microsoft.com');
 microsoftProvider.addScope('email');
 microsoftProvider.addScope('profile');
@@ -44,10 +39,11 @@ export const createAccount = async (email, password) => {
   }
 };
 
-// Sign in with Google
-export const signInWithGoogle = async () => {
+// Sign in with Google using access token from Google Identity Services
+export const signInWithGoogleToken = async (accessToken) => {
   try {
-    const result = await signInWithPopup(auth, googleProvider);
+    const credential = GoogleAuthProvider.credential(null, accessToken);
+    const result = await signInWithCredential(auth, credential);
     return result.user;
   } catch (error) {
     console.error('Error signing in with Google:', error);
@@ -58,12 +54,10 @@ export const signInWithGoogle = async () => {
 // Sign in with Microsoft
 export const signInWithMicrosoft = async () => {
   try {
+    // Note: Microsoft sign-in may need a similar GIS-like approach
+    // if cross-origin issues occur
+    const { signInWithPopup } = await import('firebase/auth');
     const result = await signInWithPopup(auth, microsoftProvider);
-    // Microsoft credential
-    const credential = OAuthProvider.credentialFromResult(result);
-    const accessToken = credential?.accessToken;
-    const idToken = credential?.idToken;
-    
     return result.user;
   } catch (error) {
     console.error('Error signing in with Microsoft:', error);

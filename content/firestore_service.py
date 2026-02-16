@@ -340,6 +340,29 @@ def get_resources_by_ids(resource_ids: List[str]) -> List[Dict[str, Any]]:
         return []
 
 
+def check_community_slug_exists(slug: str) -> bool:
+    """
+    Check if a community post with the given slug already exists.
+
+    Args:
+        slug: URL-friendly post identifier
+
+    Returns:
+        True if a post with this slug exists
+    """
+    try:
+        db = get_firestore_client()
+        docs = db.collection('communityPosts').where(
+            filter=FieldFilter('slug', '==', slug)
+        ).limit(1).stream()
+        for doc in docs:
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"Error checking slug existence: {e}")
+        return False
+
+
 def get_community_posts(
     limit: int = 20,
     category: Optional[str] = None,

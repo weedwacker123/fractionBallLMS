@@ -26,6 +26,7 @@ class FirebaseAuthMiddleware(MiddlewareMixin):
         '/accounts/django-login/',
         '/accounts/logout/',
         '/accounts/verify-token/',
+        '/accounts/google-auth/',
         '/api/',
         '/admin/',
         '/static/',

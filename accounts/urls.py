@@ -15,6 +15,7 @@ urlpatterns = [
     path('django-login/', views.django_login_view, name='django-login'),  # Plain username/password
     path('logout/', views.logout_view, name='logout'),
     path('verify-token/', views.verify_token, name='verify-token'),
+    path('google-auth/', views.google_auth, name='google-auth'),
     
     # Admin dashboard
     path('dashboard/', admin_views.admin_dashboard, name='admin-dashboard'),

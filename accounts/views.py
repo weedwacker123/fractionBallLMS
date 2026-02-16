@@ -241,6 +241,161 @@ def verify_token(request):
         return JsonResponse({'error': error_message}, status=500)
 
 
+GOOGLE_CLIENT_ID = '110595744029-9g3k1nbtko3jv7oupgb5aqri1jho5hcj.apps.googleusercontent.com'
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def google_auth(request):
+    """
+    Verify Google ID token from Google Identity Services and establish Django session.
+    Bypasses Firebase client-side auth entirely — the Google ID token from GIS is
+    verified server-side using google-auth, then a Django user is created/found.
+    """
+    try:
+        data = json.loads(request.body)
+        credential = data.get('credential')
+
+        if not credential:
+            return JsonResponse({'error': 'No credential provided'}, status=400)
+
+        # Verify the Google ID token server-side
+        try:
+            from google.oauth2 import id_token
+            from google.auth.transport import requests as google_requests
+
+            idinfo = id_token.verify_oauth2_token(
+                credential, google_requests.Request(), GOOGLE_CLIENT_ID
+            )
+
+            email = idinfo.get('email', '')
+            name = idinfo.get('name', '')
+
+            if not email:
+                return JsonResponse({'error': 'No email in Google token'}, status=400)
+
+            logger.info(f"Google ID token verified for email: {email}")
+
+        except ValueError as e:
+            logger.error(f"Invalid Google ID token: {e}")
+            return JsonResponse({'error': 'Invalid Google token'}, status=401)
+
+        # Find or create Firebase user to get firebase_uid
+        try:
+            firebase_user = auth.get_user_by_email(email)
+            firebase_uid = firebase_user.uid
+        except auth.UserNotFoundError:
+            firebase_user = auth.create_user(email=email, display_name=name)
+            firebase_uid = firebase_user.uid
+            logger.info(f"Created new Firebase user for {email}: {firebase_uid}")
+        except Exception as e:
+            logger.error(f"Firebase user lookup/creation error: {e}")
+            return JsonResponse({'error': 'Failed to process authentication'}, status=500)
+
+        # Find or create Django user
+        try:
+            user = User.objects.get(firebase_uid=firebase_uid)
+            logger.info(f"Existing Django user found: {user.email}")
+
+        except DatabaseError as e:
+            logger.error(f"Database error during user lookup: {e}", exc_info=True)
+            return JsonResponse({'error': 'Database error. Please try again later.'}, status=500)
+
+        except User.DoesNotExist:
+            first_name = ''
+            last_name = ''
+            if name:
+                name_parts = name.split(' ', 1)
+                first_name = name_parts[0]
+                last_name = name_parts[1] if len(name_parts) > 1 else ''
+
+            username = email.split('@')[0] if email else f'user_{firebase_uid[:8]}'
+            base_username = username
+            counter = 1
+            while User.objects.filter(username=username).exists():
+                username = f"{base_username}_{counter}"
+                counter += 1
+
+            try:
+                user = User.objects.create(
+                    firebase_uid=firebase_uid,
+                    email=email,
+                    username=username,
+                    first_name=first_name,
+                    last_name=last_name,
+                    school=None,
+                    role=User.Role.REGISTERED_USER,
+                )
+                logger.info(f"Created new Django user: {user.email} ({user.username})")
+            except IntegrityError as e:
+                logger.warning(f"IntegrityError creating user, fetching existing: {e}")
+                try:
+                    user = User.objects.get(firebase_uid=firebase_uid)
+                except User.DoesNotExist:
+                    return JsonResponse({'error': 'Failed to create user account.'}, status=500)
+
+        # Sync role from Firestore (non-blocking)
+        try:
+            from content.firestore_service import get_user_role
+            firestore_role = get_user_role(firebase_uid)
+            if firestore_role:
+                LEGACY_ROLE_MAP = {'SCHOOL_ADMIN': 'REGISTERED_USER', 'TEACHER': 'REGISTERED_USER'}
+                normalized_role = LEGACY_ROLE_MAP.get(firestore_role, firestore_role)
+                valid_roles = ['ADMIN', 'CONTENT_MANAGER', 'REGISTERED_USER']
+                if normalized_role in valid_roles and user.role != normalized_role:
+                    user.role = normalized_role
+                    user.save(update_fields=['role'])
+        except Exception as e:
+            logger.warning(f"Failed to sync role from Firestore: {e}")
+
+        # Log user in via Django's auth system
+        try:
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+        except Exception as e:
+            logger.error(f"Django login failed: {e}", exc_info=True)
+            return JsonResponse({'error': 'Failed to establish session.'}, status=500)
+
+        # Set session cache for middleware
+        try:
+            request.session['user_id'] = user.id
+            request.session['cached_user_id'] = user.id
+            request.session['auth_cache_expiry'] = time.time() + TOKEN_CACHE_DURATION
+            request.session.set_expiry(3600)
+        except Exception as e:
+            logger.error(f"Session setup failed: {e}", exc_info=True)
+            return JsonResponse({'error': 'Failed to save session.'}, status=500)
+
+        # Sync user profile to Firestore (non-blocking)
+        try:
+            from content.firestore_service import create_or_update_user_profile
+            create_or_update_user_profile(firebase_uid, {
+                'email': user.email,
+                'displayName': user.get_full_name(),
+                'role': user.role,
+                'school': user.school.name if user.school else None,
+                'lastLogin': timezone.now().isoformat()
+            })
+        except Exception as e:
+            logger.warning(f"Failed to sync user profile to Firestore: {e}")
+
+        return JsonResponse({
+            'success': True,
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'name': user.get_full_name(),
+                'role': user.role
+            }
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        logger.error(f"Unexpected error in google_auth: {e}", exc_info=True)
+        error_message = f'Server error: {str(e)}' if settings.DEBUG else 'An unexpected error occurred.'
+        return JsonResponse({'error': error_message}, status=500)
+
+
 @require_http_methods(["POST", "GET"])
 def logout_view(request):
     """
