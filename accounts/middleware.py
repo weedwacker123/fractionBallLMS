@@ -31,9 +31,12 @@ class FirebaseAuthMiddleware(MiddlewareMixin):
         '/admin/',
         '/static/',
         '/faq/',
+        '/faqs/',
+        '/activities/',
         '/search/',
         '/community/',
         '/health/',
+        '/page/',
     ]
 
     # Exact paths that don't require authentication

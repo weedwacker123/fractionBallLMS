@@ -20,6 +20,25 @@ def _get_firestore_client():
     return get_firestore_client()
 
 
+def _normalize_url(url: str) -> str:
+    """
+    Normalize internal URLs from CMS:
+    - Ensure leading slash and trailing slash on internal paths
+    """
+    if not url:
+        return '/'
+    # Don't touch external URLs
+    if url.startswith('http://') or url.startswith('https://'):
+        return url
+    # Ensure leading slash
+    if not url.startswith('/'):
+        url = '/' + url
+    # Ensure trailing slash (Django APPEND_SLASH expects it)
+    if url != '/' and not url.endswith('/'):
+        url = url + '/'
+    return url
+
+
 def _fetch_menu_items_from_firestore(location: str) -> List[Dict[str, Any]]:
     """
     Fetch menu items from Firestore by location
@@ -46,7 +65,7 @@ def _fetch_menu_items_from_firestore(location: str) -> List[Dict[str, Any]]:
             item = {
                 'id': doc.id,
                 'label': data.get('label', ''),
-                'url': data.get('url', ''),
+                'url': _normalize_url(data.get('url', '')),
                 'type': data.get('type', 'page'),
                 'openInNewTab': data.get('openInNewTab', False),
                 'icon': data.get('icon'),
@@ -149,11 +168,7 @@ def _get_fallback_header_menu() -> List[Dict[str, Any]]:
 
 def _get_fallback_footer_menu() -> List[Dict[str, Any]]:
     """Fallback footer menu if Firestore unavailable"""
-    return [
-        {'label': 'About', 'url': '/page/about/', 'type': 'page', 'openInNewTab': False, 'children': []},
-        {'label': 'Contact', 'url': '/page/contact/', 'type': 'page', 'openInNewTab': False, 'children': []},
-        {'label': 'Privacy Policy', 'url': '/page/privacy/', 'type': 'page', 'openInNewTab': False, 'children': []},
-    ]
+    return []
 
 
 def refresh_menu_cache():

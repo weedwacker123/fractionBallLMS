@@ -10,8 +10,10 @@ urlpatterns = [
     # Main pages (public)
     path('', v4_views.home, name='home'),
     path('faq/', v4_views.faq, name='faq'),
+    path('faqs/', v4_views.faq, name='faqs'),  # Alias — CMS menu uses /faqs/
 
-    # Activity pages (requires auth)
+    # Activity pages
+    path('activities/', v4_views.home, name='activities'),  # /activities/ shows the home activity listing
     path('activities/<slug:slug>/', v4_views.activity_detail, name='activity-detail'),
 
     # Search (public for homepage filtering)

@@ -44,14 +44,14 @@
     <!-- Navigation -->
     <nav class="bg-white shadow-sm border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16 sm:h-20">
+            <div class="relative flex items-center justify-between h-16 sm:h-20">
                 <!-- Logo and Brand -->
                 <a href="/" class="flex items-center">
                     <img src="{% static 'img/logo.png' %}" alt="Fraction Ball" class="h-10 sm:h-12 w-auto">
                 </a>
-                
-                <!-- Center Navigation (Desktop) - Dynamic from CMS -->
-                <div class="hidden lg:flex items-center space-x-6">
+
+                <!-- Center Navigation (Desktop) - absolutely centered -->
+                <div class="hidden lg:flex items-center space-x-6 absolute left-1/2 -translate-x-1/2">
                     {% for item in header_menu %}
                     <div class="relative group">
                         <a href="{{ item.url }}" {% if item.openInNewTab %}target="_blank" rel="noopener"{% endif %}
@@ -81,14 +81,6 @@
                         </svg>
                     </button>
                     {% if user.is_authenticated %}
-                        <!-- Notifications -->
-                        <button class="p-2 text-gray-600 hover:text-gray-900 transition-colors relative">
-                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
-                            </svg>
-                            <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                        </button>
-                        
                         <!-- User Profile with dropdown -->
                         <div class="relative">
                             <button id="userMenuBtn" class="p-2 text-gray-600 hover:text-gray-900 transition-colors">
