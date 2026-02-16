@@ -115,40 +115,14 @@ Vercel auto-deploys its proxy config when you push `vercel.json` changes, but th
 
 ### Deploy to Cloud Run
 
-**Option A: Quick deploy script (recommended)**
+**Always use Cloud Build (recommended):**
 ```bash
-# Build new Docker image and deploy (~2-3 min)
-./scripts/quick-deploy.sh build
-
-# Re-deploy existing image with new config (~1-2 min)
-./scripts/quick-deploy.sh deploy
-
-# Just restart the service (~30-60 sec)
-./scripts/quick-deploy.sh restart
-```
-
-**Option B: Cloud Build (CI/CD style)**
-```bash
+cd fractionBallLMS
 gcloud builds submit --config cloudbuild.yaml
 ```
-This builds the Docker image in the cloud (no local Docker needed), pushes it, and deploys to Cloud Run with secrets from Google Secret Manager.
+This builds the Docker image remotely (no local Docker needed), pushes to Container Registry, and deploys to Cloud Run with secrets from Google Secret Manager. Takes ~4-5 minutes.
 
-**Option C: Full manual deploy**
-```bash
-# 1. Build for linux/amd64 (Cloud Run requires this)
-docker build --platform linux/amd64 -t gcr.io/fractionball-lms/fractionball-backend:latest -f Dockerfile.production .
-
-# 2. Push to Container Registry
-docker push gcr.io/fractionball-lms/fractionball-backend:latest
-
-# 3. Deploy to Cloud Run
-gcloud run deploy fractionball-backend \
-    --image gcr.io/fractionball-lms/fractionball-backend:latest \
-    --region us-central1 \
-    --platform managed \
-    --allow-unauthenticated \
-    --memory 512Mi
-```
+> **Do NOT use `./scripts/quick-deploy.sh`** — it sets `SECRET_KEY` as a plain env var, which conflicts with the Secret Manager reference already configured on Cloud Run. Cloud Build handles secrets correctly via `--update-secrets`.
 
 ### Prerequisites for deploying
 
@@ -192,7 +166,7 @@ Runs on push/PR to `main` or `develop`:
 ### Deployment is manual
 There is no auto-deploy on push. After merging to `main`, deploy manually:
 ```bash
-./scripts/quick-deploy.sh build
+gcloud builds submit --config cloudbuild.yaml
 ```
 
 ## Coding Standards
@@ -233,7 +207,7 @@ There is no auto-deploy on push. After merging to `main`, deploy manually:
 3. Run `pip install -r requirements.txt` (in a venv) and `npm install`
 4. Run `python manage.py migrate && python manage.py runserver`
 5. Open http://localhost:8000
-6. To deploy: install `gcloud` CLI, authenticate, then run `./scripts/quick-deploy.sh build`
+6. To deploy: install `gcloud` CLI, authenticate, then run `gcloud builds submit --config cloudbuild.yaml`
 7. Vercel proxy config auto-deploys when you push `vercel.json` changes — no action needed for most changes
 
 ### Access needed

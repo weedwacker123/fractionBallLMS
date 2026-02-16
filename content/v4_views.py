@@ -70,8 +70,15 @@ def home(request):
         )
         activities = [FirestoreActivity.from_dict(a) for a in activities_data]
 
-        # Get all topics from Firestore
-        all_topics = firestore_service.get_all_topics()
+        # Extract topics from already-fetched activities (avoids redundant Firestore query)
+        all_topics_set = set()
+        for a in activities_data:
+            tags = a.get('tags', [])
+            topic = a.get('taxonomy', {}).get('topic')
+            all_topics_set.update(tags)
+            if topic:
+                all_topics_set.add(topic)
+        all_topics = sorted(all_topics_set)
     else:
         # Use Django ORM (fallback)
         activities = Activity.objects.filter(is_published=True)

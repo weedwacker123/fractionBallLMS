@@ -12,9 +12,17 @@ import firebase_admin
 
 logger = logging.getLogger(__name__)
 
+# Singleton Firestore client - reused across all requests to avoid
+# re-creating gRPC channels and re-parsing credentials on every call
+_firestore_client = None
+
 
 def get_firestore_client():
-    """Get Firestore client with explicit database name and credentials"""
+    """Get or create a singleton Firestore client with explicit database name and credentials"""
+    global _firestore_client
+    if _firestore_client is not None:
+        return _firestore_client
+
     from google.cloud import firestore as gc_firestore
     from google.oauth2 import service_account
     from django.conf import settings
@@ -39,11 +47,12 @@ def get_firestore_client():
 
     # Use google-cloud-firestore directly with explicit database='default'
     # Note: The database is named 'default' (not '(default)') in this project
-    return gc_firestore.Client(
+    _firestore_client = gc_firestore.Client(
         project=project_id,
         database='default',
         credentials=credentials
     )
+    return _firestore_client
 
 
 def get_all_documents(collection_name: str) -> List[Dict[str, Any]]:
@@ -280,7 +289,7 @@ def get_activity_by_slug(slug: str) -> Optional[Dict[str, Any]]:
 
 def get_videos_by_ids(video_ids: List[str]) -> List[Dict[str, Any]]:
     """
-    Get multiple videos by their document IDs
+    Get multiple videos by their document IDs (single batch read)
 
     Args:
         video_ids: List of Firestore document IDs
@@ -293,10 +302,11 @@ def get_videos_by_ids(video_ids: List[str]) -> List[Dict[str, Any]]:
 
     try:
         db = get_firestore_client()
-        results = []
+        doc_refs = [db.collection('videos').document(vid) for vid in video_ids]
+        docs = db.get_all(doc_refs)
 
-        for video_id in video_ids:
-            doc = db.collection('videos').document(video_id).get()
+        results = []
+        for doc in docs:
             if doc.exists:
                 data = doc.to_dict()
                 data['id'] = doc.id
@@ -311,7 +321,7 @@ def get_videos_by_ids(video_ids: List[str]) -> List[Dict[str, Any]]:
 
 def get_resources_by_ids(resource_ids: List[str]) -> List[Dict[str, Any]]:
     """
-    Get multiple resources by their document IDs
+    Get multiple resources by their document IDs (single batch read)
 
     Args:
         resource_ids: List of Firestore document IDs
@@ -324,10 +334,11 @@ def get_resources_by_ids(resource_ids: List[str]) -> List[Dict[str, Any]]:
 
     try:
         db = get_firestore_client()
-        results = []
+        doc_refs = [db.collection('resources').document(rid) for rid in resource_ids]
+        docs = db.get_all(doc_refs)
 
-        for resource_id in resource_ids:
-            doc = db.collection('resources').document(resource_id).get()
+        results = []
+        for doc in docs:
             if doc.exists:
                 data = doc.to_dict()
                 data['id'] = doc.id
