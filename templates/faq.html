@@ -10,140 +10,157 @@
             Find answers to common questions about Fraction Ball activities and implementation.
         </p>
     </div>
-    
+
     <!-- FAQ Sections -->
     <div class="space-y-6">
-        <!-- Getting Started -->
-        <div class="bg-white rounded-lg shadow-md border border-gray-200">
-            <div class="p-6 border-b border-gray-200">
-                <h2 class="text-2xl font-bold text-gray-900">Getting Started</h2>
-            </div>
-            <div class="divide-y divide-gray-200">
-                <div class="p-6">
-                    <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
-                        <h3 class="text-lg font-semibold text-gray-900">What is Fraction Ball?</h3>
-                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </button>
-                    <div class="hidden mt-4 text-gray-600">
-                        <p>Fraction Ball is an innovative math education program that combines physical activity with fraction learning. Students engage in basketball-based activities designed to reinforce fraction concepts through movement and teamwork.</p>
-                    </div>
+        {% if faq_sections %}
+            {% for section in faq_sections %}
+            <div class="bg-white rounded-lg shadow-md border border-gray-200">
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-2xl font-bold text-gray-900">{{ section.title }}</h2>
                 </div>
-                
-                <div class="p-6">
-                    <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
-                        <h3 class="text-lg font-semibold text-gray-900">What grade levels is Fraction Ball designed for?</h3>
-                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </button>
-                    <div class="hidden mt-4 text-gray-600">
-                        <p>Fraction Ball activities are primarily designed for grades 3-8, with most content focused on grades 4-6. Activities can be adapted for different skill levels within this range.</p>
+                <div class="divide-y divide-gray-200">
+                    {% for item in section.items %}
+                    <div class="p-6">
+                        <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
+                            <h3 class="text-lg font-semibold text-gray-900">{{ item.question }}</h3>
+                            <svg class="w-5 h-5 text-gray-500 transform transition-transform flex-shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="hidden mt-4 text-gray-600">
+                            {{ item.answer|linebreaksbr }}
+                        </div>
                     </div>
-                </div>
-                
-                <div class="p-6">
-                    <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
-                        <h3 class="text-lg font-semibold text-gray-900">What equipment do I need?</h3>
-                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </button>
-                    <div class="hidden mt-4 text-gray-600">
-                        <p>Basic equipment includes: basketballs (4-6), cones, timer, whistle (optional), and clipboard. Specific activities may require additional items like bottle caps or hula hoops. Each activity page lists the exact materials needed.</p>
-                    </div>
+                    {% endfor %}
                 </div>
             </div>
-        </div>
-        
-        <!-- Implementation -->
-        <div class="bg-white rounded-lg shadow-md border border-gray-200">
-            <div class="p-6 border-b border-gray-200">
-                <h2 class="text-2xl font-bold text-gray-900">Implementation</h2>
-            </div>
-            <div class="divide-y divide-gray-200">
-                <div class="p-6">
-                    <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
-                        <h3 class="text-lg font-semibold text-gray-900">How long does each activity take?</h3>
-                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </button>
-                    <div class="hidden mt-4 text-gray-600">
-                        <p>Most activities are designed to fit within a 30-45 minute class period, including setup, instruction, activity time, and wrap-up. Some activities have multiple parts that can be spread across several sessions.</p>
-                    </div>
+            {% endfor %}
+        {% else %}
+            {# Fallback: hardcoded FAQs when Firestore data is unavailable #}
+            <div class="bg-white rounded-lg shadow-md border border-gray-200">
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-2xl font-bold text-gray-900">Getting Started</h2>
                 </div>
-                
-                <div class="p-6">
-                    <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
-                        <h3 class="text-lg font-semibold text-gray-900">Can I do these activities in a classroom?</h3>
-                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </button>
-                    <div class="hidden mt-4 text-gray-600">
-                        <p>While Fraction Ball is designed for gym or outdoor court use, some activities have classroom adaptations. Look for the "CLASSROOM" filter to find activities suitable for indoor spaces with limited equipment.</p>
+                <div class="divide-y divide-gray-200">
+                    <div class="p-6">
+                        <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
+                            <h3 class="text-lg font-semibold text-gray-900">What is Fraction Ball?</h3>
+                            <svg class="w-5 h-5 text-gray-500 transform transition-transform flex-shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="hidden mt-4 text-gray-600">
+                            <p>Fraction Ball is an innovative math education program that combines physical activity with fraction learning. Students engage in basketball-based activities designed to reinforce fraction concepts through movement and teamwork.</p>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="p-6">
-                    <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
-                        <h3 class="text-lg font-semibold text-gray-900">How do I assess student learning?</h3>
-                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </button>
-                    <div class="hidden mt-4 text-gray-600">
-                        <p>Many activities include running records, observation sheets, and reflection questions. You can assess both math understanding and collaboration skills. Downloadable assessment tools are available in the Resources section of each activity.</p>
+                    <div class="p-6">
+                        <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
+                            <h3 class="text-lg font-semibold text-gray-900">What grade levels is Fraction Ball designed for?</h3>
+                            <svg class="w-5 h-5 text-gray-500 transform transition-transform flex-shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="hidden mt-4 text-gray-600">
+                            <p>Fraction Ball activities are primarily designed for grades 3-8, with most content focused on grades 4-6. Activities can be adapted for different skill levels within this range.</p>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
+                            <h3 class="text-lg font-semibold text-gray-900">What equipment do I need?</h3>
+                            <svg class="w-5 h-5 text-gray-500 transform transition-transform flex-shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="hidden mt-4 text-gray-600">
+                            <p>Basic equipment includes: basketballs (4-6), cones, timer, whistle (optional), and clipboard. Specific activities may require additional items like bottle caps or hula hoops. Each activity page lists the exact materials needed.</p>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- Technical Support -->
-        <div class="bg-white rounded-lg shadow-md border border-gray-200">
-            <div class="p-6 border-b border-gray-200">
-                <h2 class="text-2xl font-bold text-gray-900">Technical Support</h2>
-            </div>
-            <div class="divide-y divide-gray-200">
-                <div class="p-6">
-                    <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
-                        <h3 class="text-lg font-semibold text-gray-900">How do I download resources?</h3>
-                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </button>
-                    <div class="hidden mt-4 text-gray-600">
-                        <p>Navigate to any activity page and look for the Resources sidebar on the right. Click on any resource to download PDFs, Excel files, or other materials directly to your device.</p>
-                    </div>
+
+            <div class="bg-white rounded-lg shadow-md border border-gray-200">
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-2xl font-bold text-gray-900">Implementation</h2>
                 </div>
-                
-                <div class="p-6">
-                    <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
-                        <h3 class="text-lg font-semibold text-gray-900">Can I share activities with other teachers?</h3>
-                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </button>
-                    <div class="hidden mt-4 text-gray-600">
-                        <p>Yes! All activities and resources within your school or district account can be shared. Use the Community features to collaborate and share adaptations with other educators.</p>
+                <div class="divide-y divide-gray-200">
+                    <div class="p-6">
+                        <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
+                            <h3 class="text-lg font-semibold text-gray-900">How long does each activity take?</h3>
+                            <svg class="w-5 h-5 text-gray-500 transform transition-transform flex-shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="hidden mt-4 text-gray-600">
+                            <p>Most activities are designed to fit within a 30-45 minute class period, including setup, instruction, activity time, and wrap-up. Some activities have multiple parts that can be spread across several sessions.</p>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="p-6">
-                    <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
-                        <h3 class="text-lg font-semibold text-gray-900">Who do I contact for technical support?</h3>
-                        <svg class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </button>
-                    <div class="hidden mt-4 text-gray-600">
-                        <p>For technical support, please contact support@fractionball.com or use the help button in the bottom right corner of any page. Our support team typically responds within 24 hours.</p>
+                    <div class="p-6">
+                        <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
+                            <h3 class="text-lg font-semibold text-gray-900">Can I do these activities in a classroom?</h3>
+                            <svg class="w-5 h-5 text-gray-500 transform transition-transform flex-shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="hidden mt-4 text-gray-600">
+                            <p>While Fraction Ball is designed for gym or outdoor court use, some activities have classroom adaptations. Look for the "CLASSROOM" filter to find activities suitable for indoor spaces with limited equipment.</p>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
+                            <h3 class="text-lg font-semibold text-gray-900">How do I assess student learning?</h3>
+                            <svg class="w-5 h-5 text-gray-500 transform transition-transform flex-shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="hidden mt-4 text-gray-600">
+                            <p>Many activities include running records, observation sheets, and reflection questions. You can assess both math understanding and collaboration skills. Downloadable assessment tools are available in the Resources section of each activity.</p>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+
+            <div class="bg-white rounded-lg shadow-md border border-gray-200">
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-2xl font-bold text-gray-900">Technical Support</h2>
+                </div>
+                <div class="divide-y divide-gray-200">
+                    <div class="p-6">
+                        <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
+                            <h3 class="text-lg font-semibold text-gray-900">How do I download resources?</h3>
+                            <svg class="w-5 h-5 text-gray-500 transform transition-transform flex-shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="hidden mt-4 text-gray-600">
+                            <p>Navigate to any activity page and look for the Resources sidebar on the right. Click on any resource to download PDFs, Excel files, or other materials directly to your device.</p>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
+                            <h3 class="text-lg font-semibold text-gray-900">Can I share activities with other teachers?</h3>
+                            <svg class="w-5 h-5 text-gray-500 transform transition-transform flex-shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="hidden mt-4 text-gray-600">
+                            <p>Yes! All activities and resources within your school or district account can be shared. Use the Community features to collaborate and share adaptations with other educators.</p>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <button class="w-full flex justify-between items-center text-left" onclick="toggleFAQ(this)">
+                            <h3 class="text-lg font-semibold text-gray-900">Who do I contact for technical support?</h3>
+                            <svg class="w-5 h-5 text-gray-500 transform transition-transform flex-shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="hidden mt-4 text-gray-600">
+                            <p>For technical support, please contact support@fractionball.com or use the help button in the bottom right corner of any page. Our support team typically responds within 24 hours.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
     </div>
 </div>
 
@@ -151,7 +168,7 @@
 function toggleFAQ(button) {
     const content = button.nextElementSibling;
     const icon = button.querySelector('svg');
-    
+
     if (content.classList.contains('hidden')) {
         content.classList.remove('hidden');
         icon.classList.add('rotate-180');
@@ -162,55 +179,3 @@ function toggleFAQ(button) {
 }
 </script>
 {% endblock %}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -346,8 +346,42 @@ def community(request):
 def faq(request):
     """
     FAQ page. Publicly accessible.
+    Fetches FAQs from Firestore CMS when USE_FIRESTORE is enabled.
     """
-    return render(request, 'faq.html')
+    # Category display labels (matches CMS faqs.ts categoryValues)
+    category_labels = {
+        'getting_started': 'Getting Started',
+        'implementation': 'Implementation',
+        'technical': 'Technical Support',
+        'account': 'Account & Access',
+        'content': 'Content & Activities',
+        'community': 'Community',
+        'other': 'Other',
+    }
+
+    faq_sections = []
+
+    if getattr(settings, 'USE_FIRESTORE', False):
+        all_faqs = firestore_service.get_faqs_by_category()
+
+        # Group by category
+        grouped = {}
+        for faq_item in all_faqs:
+            cat = faq_item.get('category', 'other')
+            grouped.setdefault(cat, []).append(faq_item)
+
+        # Build ordered sections
+        for cat_key, label in category_labels.items():
+            if cat_key in grouped:
+                faq_sections.append({
+                    'title': label,
+                    'items': grouped[cat_key],
+                })
+
+    context = {
+        'faq_sections': faq_sections,
+    }
+    return render(request, 'faq.html', context)
 
 
 @login_required

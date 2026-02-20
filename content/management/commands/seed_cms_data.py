@@ -26,7 +26,7 @@ def get_firestore_client():
 
 
 class Command(BaseCommand):
-    help = 'Seed Firestore with CMS data: taxonomies, menus, and site config'
+    help = 'Seed Firestore with CMS data: taxonomies, menus, site config, and FAQs'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -41,7 +41,7 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             '--only',
-            choices=['taxonomies', 'menus', 'config', 'all'],
+            choices=['taxonomies', 'menus', 'config', 'faqs', 'all'],
             default='all',
             help='Seed only specific data type',
         )
@@ -64,6 +64,9 @@ class Command(BaseCommand):
 
         if only in ['all', 'config']:
             self.seed_site_config(db, clear, dry_run)
+
+        if only in ['all', 'faqs']:
+            self.seed_faqs(db, clear, dry_run)
 
         self.stdout.write(self.style.SUCCESS('Seeding complete!'))
 
@@ -137,6 +140,30 @@ class Command(BaseCommand):
             created += 1
 
         self.stdout.write(self.style.SUCCESS(f'  Site config: {created} items'))
+
+    def seed_faqs(self, db, clear, dry_run):
+        """Seed FAQ entries"""
+        self.stdout.write('\nSeeding FAQs...')
+        collection_name = 'faqs'
+
+        if clear and not dry_run:
+            self.clear_collection(db, collection_name)
+
+        faqs = self.get_faq_data()
+        created = 0
+
+        for faq in faqs:
+            if dry_run:
+                self.stdout.write(f"  Would create: [{faq['category']}] {faq['question'][:50]}...")
+            else:
+                doc_ref = db.collection(collection_name).document()
+                faq['createdAt'] = datetime.utcnow()
+                faq['updatedAt'] = datetime.utcnow()
+                doc_ref.set(faq)
+                self.stdout.write(f"  Created: [{faq['category']}] {faq['question'][:50]}...")
+            created += 1
+
+        self.stdout.write(self.style.SUCCESS(f'  FAQs: {created} items'))
 
     def clear_collection(self, db, collection_name):
         """Clear all documents in a collection"""
@@ -363,5 +390,76 @@ class Command(BaseCommand):
                 'value': 'hello@fractionball.com',
                 'description': 'Contact email displayed on the site',
                 'dataType': 'string',
+            },
+        ]
+
+    def get_faq_data(self):
+        """Return FAQ seed data matching CMS faqs collection schema"""
+        return [
+            # Getting Started
+            {
+                'question': 'What is Fraction Ball?',
+                'answer': 'Fraction Ball is an innovative math education program that combines physical activity with fraction learning. Students engage in basketball-based activities designed to reinforce fraction concepts through movement and teamwork.',
+                'category': 'getting_started',
+                'displayOrder': 1,
+                'status': 'published',
+            },
+            {
+                'question': 'What grade levels is Fraction Ball designed for?',
+                'answer': 'Fraction Ball activities are primarily designed for grades 3-8, with most content focused on grades 4-6. Activities can be adapted for different skill levels within this range.',
+                'category': 'getting_started',
+                'displayOrder': 2,
+                'status': 'published',
+            },
+            {
+                'question': 'What equipment do I need?',
+                'answer': 'Basic equipment includes: basketballs (4-6), cones, timer, whistle (optional), and clipboard. Specific activities may require additional items like bottle caps or hula hoops. Each activity page lists the exact materials needed.',
+                'category': 'getting_started',
+                'displayOrder': 3,
+                'status': 'published',
+            },
+            # Implementation
+            {
+                'question': 'How long does each activity take?',
+                'answer': 'Most activities are designed to fit within a 30-45 minute class period, including setup, instruction, activity time, and wrap-up. Some activities have multiple parts that can be spread across several sessions.',
+                'category': 'implementation',
+                'displayOrder': 1,
+                'status': 'published',
+            },
+            {
+                'question': 'Can I do these activities in a classroom?',
+                'answer': 'While Fraction Ball is designed for gym or outdoor court use, some activities have classroom adaptations. Look for the "CLASSROOM" filter to find activities suitable for indoor spaces with limited equipment.',
+                'category': 'implementation',
+                'displayOrder': 2,
+                'status': 'published',
+            },
+            {
+                'question': 'How do I assess student learning?',
+                'answer': 'Many activities include running records, observation sheets, and reflection questions. You can assess both math understanding and collaboration skills. Downloadable assessment tools are available in the Resources section of each activity.',
+                'category': 'implementation',
+                'displayOrder': 3,
+                'status': 'published',
+            },
+            # Technical Support
+            {
+                'question': 'How do I download resources?',
+                'answer': 'Navigate to any activity page and look for the Resources sidebar on the right. Click on any resource to download PDFs, Excel files, or other materials directly to your device.',
+                'category': 'technical',
+                'displayOrder': 1,
+                'status': 'published',
+            },
+            {
+                'question': 'Can I share activities with other teachers?',
+                'answer': 'Yes! All activities and resources within your school or district account can be shared. Use the Community features to collaborate and share adaptations with other educators.',
+                'category': 'technical',
+                'displayOrder': 2,
+                'status': 'published',
+            },
+            {
+                'question': 'Who do I contact for technical support?',
+                'answer': 'For technical support, please contact support@fractionball.com or use the help button in the bottom right corner of any page. Our support team typically responds within 24 hours.',
+                'category': 'technical',
+                'displayOrder': 3,
+                'status': 'published',
             },
         ]
