@@ -31,6 +31,9 @@ class FirestoreActivity:
     key_terms: Dict[str, str] = field(default_factory=dict)
     thumbnail_url: str = ''
     order: int = 0
+    # Resolved activity references (doc IDs)
+    prerequisite_activity_refs: List[str] = field(default_factory=list)
+    related_activity_refs: List[str] = field(default_factory=list)
     # New fields for direct uploads
     estimated_time: int = 0  # in minutes
     lesson_overview: List[Dict[str, Any]] = field(default_factory=list)
@@ -125,6 +128,22 @@ class FirestoreActivity:
                     else:
                         teacher_resource_ids.append(rid)
 
+        # Extract prerequisite activity references (EntityReference → doc IDs)
+        prerequisite_activity_refs = []
+        for ref in data.get('prerequisiteActivities', []) or []:
+            if hasattr(ref, 'id'):
+                prerequisite_activity_refs.append(ref.id)
+            elif isinstance(ref, str):
+                prerequisite_activity_refs.append(ref)
+
+        # Extract related activity references (EntityReference → doc IDs)
+        related_activity_refs = []
+        for ref in data.get('relatedActivities', []) or []:
+            if hasattr(ref, 'id'):
+                related_activity_refs.append(ref.id)
+            elif isinstance(ref, str):
+                related_activity_refs.append(ref)
+
         # Extract direct upload fields (new CMS structure)
         related_videos = data.get('relatedVideos', []) or []
         teacher_resources = data.get('teacherResources', []) or []
@@ -157,6 +176,9 @@ class FirestoreActivity:
             key_terms=data.get('keyTerms', {}),
             thumbnail_url=data.get('thumbnailUrl', ''),
             order=data.get('order', 0),
+            # Activity references
+            prerequisite_activity_refs=prerequisite_activity_refs,
+            related_activity_refs=related_activity_refs,
             # New direct upload fields
             estimated_time=estimated_time,
             lesson_overview=lesson_overview,

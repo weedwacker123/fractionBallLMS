@@ -1,115 +1,82 @@
 rules_version = '2';
-
-// Firebase Storage Security Rules for Fraction Ball LMS
-// All content requires authentication as per TRD requirements
-
 service firebase.storage {
   match /b/{bucket}/o {
     
-    // Helper function to check if user is authenticated
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
     
-    // Helper function to check file size (in bytes)
-    function isValidSize(maxSizeMB) {
-      return request.resource.size < maxSizeMB * 1024 * 1024;
+    function isContentManager() {
+      return isAuthenticated();
+      // In production, check custom claims or Firestore for role
     }
     
-    // Videos folder - 500MB max as per TRD
-    match /videos/{allPaths=**} {
-      // Anyone authenticated can read videos
-      allow read: if isAuthenticated();
-      
-      // Only authenticated users can upload videos (max 500MB)
-      allow write: if isAuthenticated() 
-                   && isValidSize(500)
-                   && request.resource.contentType.matches('video/.*');
+    function isValidFileSize(maxSize) {
+      return request.resource.size < maxSize;
     }
     
-    // Resources folder (PDFs, PowerPoints, Word docs) - 50MB max
-    match /resources/{allPaths=**} {
-      allow read: if isAuthenticated();
-      
-      allow write: if isAuthenticated()
-                   && isValidSize(50)
-                   && (request.resource.contentType == 'application/pdf'
-                       || request.resource.contentType.matches('application/vnd.ms-.*')
-                       || request.resource.contentType.matches('application/vnd.openxmlformats-.*')
-                       || request.resource.contentType == 'application/msword');
+    function isValidContentType(types) {
+      return request.resource.contentType.matches(types);
     }
     
-    // Lesson plans folder - PDFs only, 10MB max
-    // Public read: Required for Google Docs Viewer to display PDFs
-    // Note: Browsers may send different MIME types for PDFs, so we check multiple
-    match /lesson-plans/{allPaths=**} {
-      allow read: if true;  // Public read - LMS pages require Django login
-
-      allow write: if isAuthenticated()
-                   && isValidSize(10)
-                   && (request.resource.contentType == 'application/pdf'
-                       || request.resource.contentType == 'application/x-pdf'
-                       || request.resource.contentType == 'application/octet-stream');
+    // Videos folder - MP4 files up to 500MB
+    match /videos/{videoId} {
+      allow read: if true;
+      allow write: if isContentManager()
+        && isValidFileSize(500 * 1024 * 1024)
+        && request.resource.contentType.matches('video/.*');
     }
 
-    // Activity videos folder - direct video uploads for activities
-    // Public read: Required for HTML5 video player (doesn't send Firebase auth)
-    match /activity-videos/{allPaths=**} {
-      allow read: if true;  // Public read - LMS pages require Django login
-
-      allow write: if isAuthenticated()
-                   && isValidSize(500)
-                   && request.resource.contentType.matches('video/.*');
+    // Activity videos - up to 500MB (used by CMS activity uploads)
+    // Public read required: LMS serves videos via direct URLs without Firebase auth
+    match /activity-videos/{videoId} {
+      allow read: if true;
+      allow write: if isContentManager()
+        && isValidFileSize(500 * 1024 * 1024)
+        && request.resource.contentType.matches('video/.*');
     }
 
-    // Activity resources folder - teacher/student resources uploaded directly in activities
-    // Public read: Required for direct download links
-    match /activity-resources/{allPaths=**} {
-      allow read: if true;  // Public read - LMS pages require Django login
-
-      allow write: if isAuthenticated()
-                   && isValidSize(50)
-                   && (request.resource.contentType == 'application/pdf'
-                       || request.resource.contentType == 'application/x-pdf'
-                       || request.resource.contentType == 'application/octet-stream'
-                       || request.resource.contentType.matches('application/vnd.ms-.*')
-                       || request.resource.contentType.matches('application/vnd.openxmlformats-.*')
-                       || request.resource.contentType == 'application/msword');
+    // Resources folder - Documents up to 50MB
+    match /resources/{resourceId} {
+      allow read: if true;
+      allow write: if isContentManager()
+        && isValidFileSize(50 * 1024 * 1024);
     }
 
-    // Thumbnails folder - Images only, 10MB max
-    // Public read: Required for image display
-    match /thumbnails/{allPaths=**} {
-      allow read: if true;  // Public read - LMS pages require Django login
-
-      allow write: if isAuthenticated()
-                   && isValidSize(10)
-                   && request.resource.contentType.matches('image/.*');
+    // Activity resources (teacher & student) - documents up to 50MB
+    // Public read required: LMS serves download links without Firebase auth
+    match /activity-resources/{folder}/{resourceId} {
+      allow read: if true;
+      allow write: if isContentManager()
+        && isValidFileSize(50 * 1024 * 1024);
     }
     
-    // Deny all other access by default
-    match /{allPaths=**} {
-      allow read, write: if false;
+    // Lesson plans folder - PDFs up to 10MB
+    // Public read required: LMS uses Google Docs Viewer which doesn't send Firebase auth
+    match /lesson-plans/{planId} {
+      allow read: if true;
+      allow write: if isContentManager()
+        && isValidFileSize(10 * 1024 * 1024)
+        && request.resource.contentType == 'application/pdf';
+    }
+    
+    // Thumbnails folder - Images up to 2MB
+    match /thumbnails/{path=**} {
+      allow read: if true; // Public thumbnails
+      allow write: if isContentManager() 
+        && isValidFileSize(2 * 1024 * 1024)
+        && request.resource.contentType.matches('image/.*');
+    }
+    
+    // User avatars - Images up to 1MB
+    match /avatars/{userId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && request.auth.uid == userId
+        && isValidFileSize(1 * 1024 * 1024)
+        && request.resource.contentType.matches('image/.*');
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

@@ -29,9 +29,14 @@
         <div class="bg-white border border-gray-200 rounded-lg p-4">
             <h2 class="text-sm font-bold text-gray-900 uppercase mb-3">Prerequisites</h2>
             <ul class="space-y-2 text-sm">
-                {% if activity.prerequisites %}
+                {% if prerequisite_activities or activity.prerequisites %}
+                    {% for prereq in prerequisite_activities %}
+                    <li>
+                        <a href="/activities/{{ prereq.slug }}/" class="text-blue-600 hover:underline">{{ prereq.title }}</a>
+                    </li>
+                    {% endfor %}
                     {% for prereq in activity.prerequisites %}
-                    <li class="text-blue-600 hover:underline cursor-pointer">{{ prereq }}</li>
+                    <li class="text-gray-700">{{ prereq }}</li>
                     {% endfor %}
                 {% else %}
                     <li class="text-gray-400">No prerequisites</li>

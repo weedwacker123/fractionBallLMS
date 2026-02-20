@@ -7,8 +7,13 @@
             </span>
         </div>
         
-        <!-- Icon -->
+        <!-- Thumbnail / Icon -->
         <div class="flex justify-center mb-4">
+            {% if activity.thumbnail_url %}
+            <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden">
+                <img src="{{ activity.thumbnail_url }}" alt="{{ activity.title }}" class="w-full h-full object-cover">
+            </div>
+            {% else %}
             <div class="w-20 h-20 sm:w-24 sm:h-24 bg-gray-100 rounded-lg flex items-center justify-center activity-icon-{{ activity.icon_type }}">
                 {% if activity.icon_type == 'cone' %}
                 <svg class="w-12 h-12 sm:w-16 sm:h-16 text-gray-800" viewBox="0 0 100 100" fill="currentColor">
@@ -124,8 +129,9 @@
                 </svg>
                 {% endif %}
             </div>
+            {% endif %}
         </div>
-        
+
         <h3 class="text-lg sm:text-xl font-bold text-gray-900 text-center mb-3">{{ activity.title }}</h3>
         
         <p class="text-sm text-gray-600 text-center mb-4 line-clamp-2">{{ activity.description }}</p>

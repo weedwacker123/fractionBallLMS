@@ -228,12 +228,29 @@ def activity_detail(request, slug):
                     'file_url': resource.file_url,
                 })
 
-        # Get related activities (same grade)
-        related_data = firestore_service.query_activities(grade=activity.grade)
-        related_activities = [
-            FirestoreActivity.from_dict(a) for a in related_data
-            if a.get('id') != activity.id
-        ][:3]
+        # Resolve prerequisite activity references to {title, slug} dicts
+        prerequisite_activities = []
+        if activity.prerequisite_activity_refs:
+            prereq_data = firestore_service.get_activities_by_ids(activity.prerequisite_activity_refs)
+            for p in prereq_data:
+                prerequisite_activities.append({
+                    'title': p.get('title', ''),
+                    'slug': p.get('slug', ''),
+                })
+
+        # Get related activities: prefer CMS-curated refs, fall back to same-grade
+        if activity.related_activity_refs:
+            related_data = firestore_service.get_activities_by_ids(activity.related_activity_refs)
+            related_activities = [
+                FirestoreActivity.from_dict(a) for a in related_data
+                if a.get('id') != activity.id
+            ]
+        else:
+            related_data = firestore_service.query_activities(grade=activity.grade)
+            related_activities = [
+                FirestoreActivity.from_dict(a) for a in related_data
+                if a.get('id') != activity.id
+            ][:3]
 
     else:
         # Use Django ORM (fallback)
@@ -312,6 +329,7 @@ def activity_detail(request, slug):
         'student_resources': student_resources,
         'related_activities': related_activities,
         'learning_objectives': learning_objectives,
+        'prerequisite_activities': prerequisite_activities if getattr(settings, 'USE_FIRESTORE', False) else [],
     }
 
     # Add new fields from Firestore adapter (if available)
@@ -481,6 +499,7 @@ def search_activities(request):
                 'grade': activity.grade,
                 'topics': activity.topics if isinstance(activity.topics, list) else [],
                 'icon_type': activity.icon_type,
+                'thumbnail_url': get_storage_url(getattr(activity, 'thumbnail_url', '') or ''),
                 'url': f'/activities/{activity.slug}/'
             })
         return JsonResponse({'activities': results})

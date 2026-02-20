@@ -319,6 +319,38 @@ def get_videos_by_ids(video_ids: List[str]) -> List[Dict[str, Any]]:
         return []
 
 
+def get_activities_by_ids(activity_ids: List[str]) -> List[Dict[str, Any]]:
+    """
+    Get multiple activities by their document IDs (single batch read)
+
+    Args:
+        activity_ids: List of Firestore document IDs
+
+    Returns:
+        List of activity data
+    """
+    if not activity_ids:
+        return []
+
+    try:
+        db = get_firestore_client()
+        doc_refs = [db.collection('activities').document(aid) for aid in activity_ids]
+        docs = db.get_all(doc_refs)
+
+        results = []
+        for doc in docs:
+            if doc.exists:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                results.append(data)
+
+        return results
+
+    except Exception as e:
+        logger.error(f"Error fetching activities by IDs: {e}")
+        return []
+
+
 def get_resources_by_ids(resource_ids: List[str]) -> List[Dict[str, Any]]:
     """
     Get multiple resources by their document IDs (single batch read)
@@ -585,12 +617,12 @@ def get_faqs_by_category(category: Optional[str] = None) -> List[Dict[str, Any]]
     """
     try:
         db = get_firestore_client()
+        # Query without order_by to avoid composite index requirement; sort in Python
         query = db.collection('faqs').where(filter=FieldFilter('status', '==', 'published'))
 
         if category:
             query = query.where(filter=FieldFilter('category', '==', category))
 
-        query = query.order_by('displayOrder')
         docs = query.stream()
 
         results = []
@@ -598,6 +630,9 @@ def get_faqs_by_category(category: Optional[str] = None) -> List[Dict[str, Any]]
             data = doc.to_dict()
             data['id'] = doc.id
             results.append(data)
+
+        # Sort by displayOrder in Python
+        results.sort(key=lambda x: x.get('displayOrder', 0))
 
         return results
 
