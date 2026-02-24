@@ -34,7 +34,7 @@ class LibraryVideoListView(generics.ListAPIView):
     GET /api/library/videos/
     """
     serializer_class = VideoAssetSerializer
-    permission_classes = [require_permission('library.videos')]
+    permission_classes = [require_permission('activities_view')]
     pagination_class = LibraryPagination
     filter_backends = [DjangoFilterBackend]
     filterset_class = VideoAssetFilter
@@ -49,7 +49,7 @@ class LibraryVideoListView(generics.ListAPIView):
         )
         
         # Non-owners can only see published videos (unless they're admins)
-        if not self.request.user.can('content.manage'):
+        if not self.request.user.can('cms_edit'):
             queryset = queryset.filter(
                 Q(owner=self.request.user) | Q(status='PUBLISHED')
             )
@@ -89,7 +89,7 @@ class LibraryResourceListView(generics.ListAPIView):
     GET /api/library/resources/
     """
     serializer_class = ResourceSerializer
-    permission_classes = [require_permission('library.resources')]
+    permission_classes = [require_permission('resources_download')]
     pagination_class = LibraryPagination
     filter_backends = [DjangoFilterBackend]
     filterset_class = ResourceFilter
@@ -103,7 +103,7 @@ class LibraryResourceListView(generics.ListAPIView):
         )
         
         # Non-owners can only see published resources
-        if not self.request.user.can('content.manage'):
+        if not self.request.user.can('cms_edit'):
             queryset = queryset.filter(
                 Q(owner=self.request.user) | Q(status='PUBLISHED')
             )
@@ -123,7 +123,7 @@ class LibraryPlaylistListView(generics.ListAPIView):
     GET /api/library/playlists/
     """
     serializer_class = PlaylistSerializer
-    permission_classes = [require_permission('library.videos')]
+    permission_classes = [require_permission('activities_view')]
     pagination_class = LibraryPagination
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['is_public', 'owner']
@@ -142,7 +142,7 @@ class LibraryPlaylistListView(generics.ListAPIView):
         )
         
         # Users can see their own playlists or public ones
-        if not self.request.user.can('content.manage'):
+        if not self.request.user.can('cms_edit'):
             queryset = queryset.filter(
                 Q(owner=self.request.user) | Q(is_public=True)
             )
@@ -156,7 +156,7 @@ class LibraryVideoDetailView(generics.RetrieveAPIView):
     GET /api/library/videos/{id}/
     """
     serializer_class = VideoAssetSerializer
-    permission_classes = [require_permission('library.videos')]
+    permission_classes = [require_permission('activities_view')]
     
     def get_queryset(self):
         """Videos accessible to the user"""
@@ -171,7 +171,7 @@ class LibraryVideoDetailView(generics.RetrieveAPIView):
         video = super().get_object()
         
         # Check if user can access this video
-        if not self.request.user.can('activity.view', obj=video):
+        if not self.request.user.can('activity_view', obj=video):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You don't have permission to view this video.")
         
@@ -184,7 +184,7 @@ class LibraryResourceDetailView(generics.RetrieveAPIView):
     GET /api/library/resources/{id}/
     """
     serializer_class = ResourceSerializer
-    permission_classes = [require_permission('library.resources')]
+    permission_classes = [require_permission('resources_download')]
     
     def get_queryset(self):
         """Resources accessible to the user"""
@@ -199,7 +199,7 @@ class LibraryResourceDetailView(generics.RetrieveAPIView):
         resource = super().get_object()
         
         # Check if user can access this resource
-        if not self.request.user.can('resource.download', obj=resource):
+        if not self.request.user.can('resource_download', obj=resource):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You don't have permission to view this resource.")
         
@@ -207,7 +207,7 @@ class LibraryResourceDetailView(generics.RetrieveAPIView):
 
 
 @api_view(['GET'])
-@permission_classes([require_permission('dashboard.view')])
+@permission_classes([permissions.IsAuthenticated])
 def teacher_dashboard(request):
     """
     Teacher dashboard with recent uploads, stats, and quick links
@@ -343,7 +343,7 @@ def teacher_dashboard(request):
 
 
 @api_view(['GET'])
-@permission_classes([require_permission('dashboard.view')])
+@permission_classes([permissions.IsAuthenticated])
 def library_stats(request):
     """
     Library statistics and metadata

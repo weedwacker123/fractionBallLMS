@@ -29,21 +29,21 @@ class DummyObj:
 class RBACScopeTests(SimpleTestCase):
     def test_content_manager_can_access_cross_school_resource(self):
         user = DummyUser(
-            perms={"library.resources", "content.manage"},
+            perms={"resources_download", "cms_edit"},
             school_id=1,
             user_id=11,
         )
         resource = DummyObj(school_id=2, owner_id=22, status="DRAFT")
-        self.assertTrue(rbac.can(user, "resource.download", obj=resource))
+        self.assertTrue(rbac.can(user, "resource_download", obj=resource))
 
     def test_registered_user_cannot_access_cross_school_resource(self):
         user = DummyUser(
-            perms={"library.resources"},
+            perms={"resources_download"},
             school_id=1,
             user_id=11,
         )
         resource = DummyObj(school_id=2, owner_id=22, status="PUBLISHED")
-        self.assertFalse(rbac.can(user, "resource.download", obj=resource))
+        self.assertFalse(rbac.can(user, "resource_download", obj=resource))
 
 
 class CMSAccessTests(SimpleTestCase):
@@ -52,7 +52,7 @@ class CMSAccessTests(SimpleTestCase):
         self.assertFalse(has_cms_access(user))
 
     def test_cms_access_allowed_by_permission(self):
-        user = DummyUser(perms={"cms.access"}, is_superuser=False)
+        user = DummyUser(perms={"cms_view"}, is_superuser=False)
         self.assertTrue(has_cms_access(user))
 
     def test_superuser_always_has_cms_access(self):

@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.core.paginator import Paginator
 from django.db.models import Q, Count, Avg
-from .permissions import require_permission
+from .permissions import IsAdmin
 from .models import School
 from .serializers import UserSerializer, SchoolSerializer
 from content.models import AuditLog
@@ -27,7 +27,7 @@ class AdminUserViewSet(ModelViewSet):
     Admin-only user management with search, filtering, and role changes
     """
     serializer_class = UserSerializer
-    permission_classes = [require_permission('users.manage')]
+    permission_classes = [IsAdmin]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['role', 'is_active', 'school']
     search_fields = ['username', 'email', 'first_name', 'last_name']
@@ -38,10 +38,10 @@ class AdminUserViewSet(ModelViewSet):
         """Get all users for admin, school-scoped for school admins"""
         user = self.request.user
         
-        if user.can('schools.manage'):
+        if user.is_admin:
             # System admins see all users
             return User.objects.select_related('school').all()
-        elif user.can('users.manage'):
+        elif user.is_admin:
             # School admins only see users from their school
             return User.objects.select_related('school').filter(
                 school=user.school
@@ -68,7 +68,7 @@ class AdminUserViewSet(ModelViewSet):
             )
         
         # Permission checks
-        if not request.user.can('schools.manage'):
+        if not request.user.is_admin:
             # School admins can only manage users in their school
             if target_user.school != request.user.school:
                 return Response(
@@ -122,7 +122,7 @@ class AdminUserViewSet(ModelViewSet):
         target_user = self.get_object()
         
         # Permission checks for school admins
-        if not request.user.can('schools.manage') and target_user.school != request.user.school:
+        if not request.user.is_admin and target_user.school != request.user.school:
             return Response(
                 {'error': 'Cannot manage users outside your school'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -163,7 +163,7 @@ class AdminUserViewSet(ModelViewSet):
         target_user = self.get_object()
         
         # Permission checks for school admins
-        if not request.user.can('schools.manage') and target_user.school != request.user.school:
+        if not request.user.is_admin and target_user.school != request.user.school:
             return Response(
                 {'error': 'Cannot manage users outside your school'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -273,7 +273,7 @@ class SchoolAdminViewSet(ModelViewSet):
     School management for system admins
     """
     serializer_class = SchoolSerializer
-    permission_classes = [require_permission('schools.manage')]
+    permission_classes = [IsAdmin]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['is_active']
     search_fields = ['name', 'domain']
@@ -370,7 +370,7 @@ class SchoolAdminViewSet(ModelViewSet):
 
 
 @api_view(['GET'])
-@permission_classes([require_permission('schools.manage')])
+@permission_classes([IsAdmin])
 def admin_dashboard(request):
     """
     System admin dashboard with platform-wide statistics

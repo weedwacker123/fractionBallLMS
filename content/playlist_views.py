@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 
 def _require_playlist_access(request):
-    if not request.user.can('library.videos.view'):
+    if not request.user.can('activities_view'):
         return JsonResponse({
             'success': False,
-            'message': 'Missing required permission: library.videos'
+            'message': 'Missing required permission: activities_view'
         }, status=403)
     return None
 

@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-@require_permission_view('library.resources')
+@require_permission_view('resources_download')
 def track_and_download_resource(request, resource_id):
     """
     Track resource download and redirect to signed URL
@@ -19,7 +19,7 @@ def track_and_download_resource(request, resource_id):
         resource = get_object_or_404(Resource, id=resource_id)
         
         # Centralized RBAC object check controls school/ownership/published scope.
-        if not request.user.can('resource.download', obj=resource):
+        if not request.user.can('resource_download', obj=resource):
             return JsonResponse({
                 'success': False,
                 'message': 'Resource not accessible'

@@ -19,9 +19,6 @@ urlpatterns = [
     # Search (public for homepage filtering)
     path('search/', v4_views.search_activities, name='search'),
 
-    # User features (requires auth)
-    path('notes/', v4_views.my_notes, name='my-notes'),
-
     # Community Features (requires auth)
     path('community/', community_views.community_home, name='community'),
     path('community/create/', community_views.create_post, name='community-create'),

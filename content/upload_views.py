@@ -23,7 +23,7 @@ class FileUploadViewSet(viewsets.ViewSet):
     """
     ViewSet for file upload operations using Firebase Storage
     """
-    permission_classes = [require_permission('content.manage')]
+    permission_classes = [require_permission('cms_edit')]
     
     @action(detail=False, methods=['post'], url_path='request-upload')
     def request_upload(self, request):
@@ -359,7 +359,7 @@ class FileUploadViewSet(viewsets.ViewSet):
 
 
 @api_view(['GET'])
-@permission_classes([require_permission('library.videos')])
+@permission_classes([require_permission('activities_view')])
 def get_streaming_url(request, video_id):
     """
     Get a streaming URL for a video
@@ -378,7 +378,7 @@ def get_streaming_url(request, video_id):
         # Enforce school and visibility constraints at object level.
         if video.school != request.user.school:
             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-        if not request.user.can('video.stream', obj=video):
+        if not request.user.can('video_stream', obj=video):
             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
         
         # Use model method to generate streaming URL
@@ -409,7 +409,7 @@ def get_streaming_url(request, video_id):
 
 
 @api_view(['GET'])
-@permission_classes([require_permission('library.resources')])
+@permission_classes([require_permission('resources_download')])
 def get_resource_download_url(request, resource_id):
     """
     Get a download URL for a resource
@@ -429,7 +429,7 @@ def get_resource_download_url(request, resource_id):
         # Enforce school and visibility constraints at object level.
         if resource.school != request.user.school:
             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-        if not request.user.can('resource.download', obj=resource):
+        if not request.user.can('resource_download', obj=resource):
             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
         
         # Use model method to generate download URL

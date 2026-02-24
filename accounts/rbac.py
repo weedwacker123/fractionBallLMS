@@ -14,23 +14,16 @@ from typing import Any, Dict, Optional, Sequence, Tuple
 # Action -> required permission keys.
 # Keep this list focused on capabilities, not endpoints.
 ACTION_POLICIES: Dict[str, Tuple[str, ...]] = {
-    "cms.access": ("cms.access",),
-    "reports.view": ("reports.view",),
-    "users.manage": ("users.manage",),
-    "schools.manage": ("schools.manage",),
-    "content.manage": ("content.manage",),
-    "content.approve": ("content.approve",),
-    "bulk.upload": ("bulk.upload",),
-    "community.create": ("community.create",),
-    "community.moderate": ("community.moderate",),
-    "dashboard.view": ("dashboard.view",),
-    "notes.access": ("notes.access",),
-    # Domain capability actions
-    "activity.view": ("library.videos",),
-    "library.videos.view": ("library.videos",),
-    "library.resources.view": ("library.resources",),
-    "video.stream": ("library.videos",),
-    "resource.download": ("library.resources",),
+    "cms_view": ("cms_view",),
+    "cms_edit": ("cms_edit",),
+    "activities_view": ("activities_view",),
+    "resources_download": ("resources_download",),
+    "community_post": ("community_post",),
+    "community_moderate": ("community_moderate",),
+    # Domain capability aliases
+    "activity_view": ("activities_view",),
+    "video_stream": ("activities_view",),
+    "resource_download": ("resources_download",),
 }
 
 
@@ -82,8 +75,8 @@ def _scope_allowed(user: Any, action: str, obj: Optional[Any]) -> bool:
         return True
 
     # School scoping for core content surfaces.
-    if action in {"activity.view", "library.videos.view", "library.resources.view", "video.stream", "resource.download"}:
-        if user.has_perm_key("content.manage") or user.has_perm_key("schools.manage"):
+    if action in {"activity_view", "activities_view", "video_stream", "resource_download", "resources_download"}:
+        if user.has_perm_key("cms_edit"):
             return True
         if not _school_matches(user, obj):
             return False

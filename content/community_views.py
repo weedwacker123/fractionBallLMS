@@ -39,11 +39,11 @@ def _get_form_context():
 
 
 def _can_community_access(user):
-    return user.is_authenticated and user.can('community.create')
+    return user.is_authenticated and user.can('community_post')
 
 
 def _can_moderate_community(user):
-    return user.is_authenticated and user.can('community.moderate')
+    return user.is_authenticated and user.can('community_moderate')
 
 
 def community_home(request):
@@ -51,7 +51,7 @@ def community_home(request):
     Main community page with forum posts
     """
     if not _can_community_access(request.user):
-        return HttpResponseForbidden("Missing required permission: community.create")
+        return HttpResponseForbidden("Missing required permission: community_post")
 
     # Get filter parameters
     category_slug = request.GET.get('category', '')
@@ -107,7 +107,7 @@ def post_detail(request, slug):
     Individual post detail page with comments
     """
     if not _can_community_access(request.user):
-        return HttpResponseForbidden("Missing required permission: community.create")
+        return HttpResponseForbidden("Missing required permission: community_post")
 
     use_firestore = _use_firestore()
     used_firestore = False
@@ -186,7 +186,7 @@ def create_post(request):
     Create a new forum post
     """
     if not _can_community_access(request.user):
-        return HttpResponseForbidden("Missing required permission: community.create")
+        return HttpResponseForbidden("Missing required permission: community_post")
 
     if request.method == 'POST':
         try:
@@ -198,7 +198,7 @@ def create_post(request):
             # Validation
             if not title or not content:
                 messages.error(request, 'Title and content are required')
-                return render(request, 'community_create_post.html', _get_form_context())
+                return render(request, 'community_post_post.html', _get_form_context())
 
             if _use_firestore():
                 # Firestore path - create post directly in Firestore
@@ -298,7 +298,7 @@ def create_post(request):
             messages.error(request, f'Failed to create post: {str(e)}')
 
     # GET - show form
-    return render(request, 'community_create_post.html', _get_form_context())
+    return render(request, 'community_post_post.html', _get_form_context())
 
 
 @login_required
@@ -309,7 +309,7 @@ def add_comment(request, post_slug):
     """
     if not _can_community_access(request.user):
         return JsonResponse(
-            {'success': False, 'message': 'Missing required permission: community.create'},
+            {'success': False, 'message': 'Missing required permission: community_post'},
             status=403
         )
 
@@ -592,7 +592,7 @@ def flag_post(request, post_id):
     """
     if not _can_community_access(request.user):
         return JsonResponse(
-            {'success': False, 'message': 'Missing required permission: community.create'},
+            {'success': False, 'message': 'Missing required permission: community_post'},
             status=403
         )
 
@@ -688,7 +688,7 @@ def edit_post(request, post_id):
     Edit an existing post (author only)
     """
     if not _can_community_access(request.user):
-        return HttpResponseForbidden("Missing required permission: community.create")
+        return HttpResponseForbidden("Missing required permission: community_post")
 
     if _use_firestore():
         post_data = firestore_service.get_document('communityPosts', post_id)

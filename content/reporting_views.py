@@ -29,7 +29,7 @@ class Echo:
 
 
 @api_view(['GET'])
-@permission_classes([require_permission('reports.view')])
+@permission_classes([require_permission('cms_view')])
 def export_views_report(request):
     """
     Export video views report as CSV
@@ -70,10 +70,10 @@ def export_views_report(request):
             viewed_at__date__lte=end_date
         )
         
-        if not request.user.can('schools.manage') and request.user.school:
+        if not request.user.is_admin and request.user.school:
             # School admin can only see their school's data
             views_query = views_query.filter(asset__school=request.user.school)
-        elif school_id and request.user.can('schools.manage'):
+        elif school_id and request.user.is_admin:
             # System admin can filter by specific school
             try:
                 views_query = views_query.filter(asset__school_id=school_id)
@@ -144,7 +144,7 @@ def export_views_report(request):
 
 
 @api_view(['GET'])
-@permission_classes([require_permission('reports.view')])
+@permission_classes([require_permission('cms_view')])
 def export_downloads_report(request):
     """
     Export resource downloads report as CSV
@@ -179,9 +179,9 @@ def export_downloads_report(request):
             downloaded_at__date__lte=end_date
         )
         
-        if not request.user.can('schools.manage') and request.user.school:
+        if not request.user.is_admin and request.user.school:
             downloads_query = downloads_query.filter(resource__school=request.user.school)
-        elif school_id and request.user.can('schools.manage'):
+        elif school_id and request.user.is_admin:
             try:
                 downloads_query = downloads_query.filter(resource__school_id=school_id)
             except ValueError:
@@ -249,7 +249,7 @@ def export_downloads_report(request):
 
 
 @api_view(['GET'])
-@permission_classes([require_permission('reports.view')])
+@permission_classes([require_permission('cms_view')])
 def export_content_report(request):
     """
     Export content inventory report as CSV
@@ -277,9 +277,9 @@ def export_content_report(request):
             ).all()
         
         # Apply filters
-        if not request.user.can('schools.manage') and request.user.school:
+        if not request.user.is_admin and request.user.school:
             content_query = content_query.filter(school=request.user.school)
-        elif school_id and request.user.can('schools.manage'):
+        elif school_id and request.user.is_admin:
             try:
                 content_query = content_query.filter(school_id=school_id)
             except ValueError:
@@ -375,7 +375,7 @@ def export_content_report(request):
 
 
 @api_view(['GET'])
-@permission_classes([require_permission('reports.view')])
+@permission_classes([require_permission('cms_view')])
 def export_analytics_summary(request):
     """
     Export analytics summary report as CSV
@@ -402,7 +402,7 @@ def export_analytics_summary(request):
         
         # Get school filter
         school_filter = Q()
-        if not request.user.can('schools.manage') and request.user.school:
+        if not request.user.is_admin and request.user.school:
             school_filter = Q(school=request.user.school)
         
         # Get video analytics
@@ -471,7 +471,7 @@ def export_analytics_summary(request):
 
 
 @api_view(['GET'])
-@permission_classes([require_permission('reports.view')])
+@permission_classes([require_permission('cms_view')])
 def reports_dashboard(request):
     """
     Reports dashboard with available reports and recent exports
@@ -547,8 +547,8 @@ def reports_dashboard(request):
                 'user_exports': user_exports
             },
             'user_permissions': {
-                'can_export_school_data': request.user.can('reports.view') and bool(request.user.school),
-                'can_export_all_schools': request.user.can('schools.manage'),
+                'can_export_school_data': request.user.can('cms_view') and bool(request.user.school),
+                'can_export_all_schools': request.user.is_admin,
                 'school_name': request.user.school.name if request.user.school else None
             }
         })

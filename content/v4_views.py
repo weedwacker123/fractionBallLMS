@@ -178,7 +178,7 @@ def home(request):
     return render(request, 'home.html', context)
 
 
-@require_permission_view('library.videos')
+@require_permission_view('activities_view')
 def activity_detail(request, slug):
     """
     Activity detail page with prerequisites, objectives, materials, etc.
@@ -371,7 +371,7 @@ def activity_detail(request, slug):
     return render(request, 'activity_detail.html', context)
 
 
-@require_permission_view('community.create')
+@require_permission_view('community_post')
 def community(request):
     """
     Community page for teacher collaboration. Requires authentication.
@@ -420,13 +420,8 @@ def faq(request):
     return render(request, 'faq.html', context)
 
 
-@require_permission_view('notes.access')
-def my_notes(request):
-    """
-    User's notes on activities
-    """
-    # Future implementation
-    return render(request, 'notes.html')
+
+
 
 
 def search_activities(request):
@@ -556,5 +551,5 @@ def search_activities(request):
 
 
 
-    if not request.user.is_authenticated or not request.user.can('activity.view'):
-        return JsonResponse({'success': False, 'message': 'Missing required permission: library.videos'}, status=403)
+    if not request.user.is_authenticated or not request.user.can('activities_view'):
+        return JsonResponse({'success': False, 'message': 'Missing required permission: activities_view'}, status=403)

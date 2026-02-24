@@ -105,9 +105,9 @@ class MeSerializer(serializers.ModelSerializer):
             'is_admin': obj.role == 'ADMIN',
             'is_school_admin': obj.role == 'SCHOOL_ADMIN',
             'is_teacher': obj.role in ['REGISTERED_USER', 'TEACHER'],
-            'can_manage_users': dynamic_permissions.get('users.manage', False),
-            'can_manage_content': dynamic_permissions.get('content.manage', False),
-            'can_approve_content': dynamic_permissions.get('content.approve', False),
+            'can_manage_users': obj.role == 'ADMIN',
+            'can_manage_content': perms.get('cms_edit', False),
+            'can_approve_content': perms.get('cms_edit', False),
         }
 
         return {**legacy_permissions, **dynamic_permissions}

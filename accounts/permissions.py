@@ -8,7 +8,7 @@ from accounts import rbac
 def require_permission(permission_key: str):
     """
     Factory that returns a DRF permission class for a given permission key.
-    Usage: permission_classes = [require_permission('content.manage')]
+    Usage: permission_classes = [require_permission('cms_edit')]
     """
     class DynamicPermission(permissions.BasePermission):
         def has_permission(self, request, view):
@@ -86,7 +86,7 @@ class IsContentManager(permissions.BasePermission):
         return (
             request.user and
             request.user.is_authenticated and
-            (request.user.is_admin or request.user.has_perm_key('content.manage'))
+            (request.user.is_admin or request.user.has_perm_key('cms_edit'))
         )
 
 
@@ -97,7 +97,7 @@ class CanManageContent(permissions.BasePermission):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.has_perm_key('content.manage')
+            request.user.has_perm_key('cms_edit')
         )
 
 
@@ -108,7 +108,7 @@ class HasCMSAccess(permissions.BasePermission):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.has_perm_key('cms.access')
+            request.user.has_perm_key('cms_view')
         )
 
 
@@ -129,7 +129,7 @@ class CanModerateCommunity(permissions.BasePermission):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.has_perm_key('community.moderate')
+            request.user.has_perm_key('community_moderate')
         )
 
 

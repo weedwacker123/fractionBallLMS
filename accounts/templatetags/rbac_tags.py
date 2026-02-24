@@ -7,7 +7,7 @@ register = template.Library()
 def has_perm_key(user, permission_key):
     """
     Template filter to check dynamic permissions.
-    Usage: {% if user|has_perm_key:'cms.access' %}
+    Usage: {% if user|has_perm_key:'cms_view' %}
     """
     if not user or not hasattr(user, 'is_authenticated') or not user.is_authenticated:
         return False

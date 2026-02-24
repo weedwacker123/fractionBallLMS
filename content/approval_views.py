@@ -26,7 +26,7 @@ class ContentApprovalViewSet(ModelViewSet):
     Content approval workflow management for school admins and system admins
     """
     serializer_class = VideoAssetSerializer
-    permission_classes = [require_permission('content.manage')]
+    permission_classes = [require_permission('cms_edit')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status', 'grade', 'topic', 'owner']
     search_fields = ['title', 'description']
@@ -35,21 +35,21 @@ class ContentApprovalViewSet(ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['approve', 'reject', 'pending', 'approval_stats']:
-            permission_classes = [require_permission('content.approve')]
+            permission_classes = [require_permission('cms_edit')]
         else:
-            permission_classes = [require_permission('content.manage')]
+            permission_classes = [require_permission('cms_edit')]
         return [permission() for permission in permission_classes]
     
     def get_queryset(self):
         """Get content for approval based on user permissions"""
         user = self.request.user
         
-        if user.can('schools.manage'):
+        if user.is_admin:
             # System admins see all content
             return VideoAsset.objects.select_related(
                 'owner', 'school', 'reviewed_by'
             ).all()
-        elif user.can('content.approve'):
+        elif user.can('cms_edit'):
             # School admins only see content from their school
             return VideoAsset.objects.select_related(
                 'owner', 'school', 'reviewed_by'
@@ -86,7 +86,7 @@ class ContentApprovalViewSet(ModelViewSet):
         video = self.get_object()
         
         # Only owners can submit their own content
-        if video.owner != request.user and not request.user.can('content.approve'):
+        if video.owner != request.user and not request.user.can('cms_edit'):
             return Response(
                 {'error': 'Only the content owner can submit for review'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -149,14 +149,14 @@ class ContentApprovalViewSet(ModelViewSet):
         video = self.get_object()
         
         # Only school admins and system admins can approve
-        if not request.user.can('content.approve'):
+        if not request.user.can('cms_edit'):
             return Response(
                 {'error': 'Insufficient permissions to approve content'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
         
         # School admins can only approve content from their school
-        if not request.user.can('schools.manage') and video.school != request.user.school:
+        if not request.user.is_admin and video.school != request.user.school:
             return Response(
                 {'error': 'Cannot approve content from other schools'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -215,14 +215,14 @@ class ContentApprovalViewSet(ModelViewSet):
         video = self.get_object()
         
         # Only school admins and system admins can reject
-        if not request.user.can('content.approve'):
+        if not request.user.can('cms_edit'):
             return Response(
                 {'error': 'Insufficient permissions to reject content'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
         
         # School admins can only reject content from their school
-        if not request.user.can('schools.manage') and video.school != request.user.school:
+        if not request.user.is_admin and video.school != request.user.school:
             return Response(
                 {'error': 'Cannot reject content from other schools'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -392,7 +392,7 @@ class ContentApprovalViewSet(ModelViewSet):
 
 
 @api_view(['GET'])
-@permission_classes([require_permission('content.manage')])
+@permission_classes([require_permission('cms_edit')])
 def my_content_status(request):
     """
     Get current user's content status overview

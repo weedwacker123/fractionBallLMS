@@ -106,7 +106,7 @@ class User(AbstractUser):
     @property
     def is_content_manager(self):
         """Check if user has content management permissions"""
-        return self.has_perm_key('content.manage')
+        return self.has_perm_key('cms_edit')
 
     @property
     def is_registered_user(self):
@@ -116,14 +116,14 @@ class User(AbstractUser):
     @property
     def can_manage_content(self):
         """Check if user can create/edit/delete content"""
-        return self.has_perm_key('content.manage')
+        return self.has_perm_key('cms_edit')
 
     @property
     def has_cms_access(self):
         """Check if user has access to CMS/Admin interface"""
-        return self.has_perm_key('cms.access')
+        return self.has_perm_key('cms_view')
 
     @property
     def can_moderate_community(self):
         """Check if user can moderate community posts"""
-        return self.has_perm_key('community.moderate')
+        return self.has_perm_key('community_moderate')

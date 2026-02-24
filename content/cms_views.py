@@ -22,7 +22,7 @@ def has_cms_access(user):
         return False
     if getattr(user, 'is_superuser', False):
         return True
-    return user.can('cms.access')
+    return user.can('cms_view')
 
 
 @ensure_csrf_cookie
