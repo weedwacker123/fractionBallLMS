@@ -277,7 +277,7 @@ class FirestoreResource:
 class FirestoreCategoryProxy:
     """
     Lightweight proxy that mimics ForumCategory for templates.
-    Maps Firestore category enum keys to display properties.
+    Fetches category metadata from taxonomy_service (cached 30s).
     """
     name: str
     slug: str
@@ -290,16 +290,26 @@ class FirestoreCategoryProxy:
         """Template compatibility - categories use slug as ID."""
         return self.slug
 
-    CATEGORY_MAP = {
-        'question': {'name': 'Question', 'color': 'blue', 'description': 'Ask questions about activities, implementation, or math concepts.'},
-        'discussion': {'name': 'Discussion', 'color': 'green', 'description': 'Share ideas, experiences, and teaching strategies.'},
-        'resource_share': {'name': 'Resource Share', 'color': 'purple', 'description': 'Share helpful resources, worksheets, and materials.'},
-        'announcement': {'name': 'Announcement', 'color': 'red', 'description': 'Official announcements and updates from the team.'},
-    }
+    @classmethod
+    def _get_category_map(cls) -> Dict[str, Dict[str, str]]:
+        """Build category map from the taxonomy service (handles caching)."""
+        from content.taxonomy_service import get_community_categories
+        categories = get_community_categories()
+        cat_map = {}
+        for cat in categories:
+            key = cat.get('key', '')
+            if key:
+                cat_map[key] = {
+                    'name': cat.get('label', key.replace('_', ' ').title()),
+                    'color': cat.get('color', 'gray'),
+                    'description': cat.get('description', ''),
+                }
+        return cat_map
 
     @classmethod
     def from_key(cls, key: str, post_count: int = 0) -> 'FirestoreCategoryProxy':
-        info = cls.CATEGORY_MAP.get(key, {'name': key.replace('_', ' ').title(), 'color': 'gray', 'description': ''})
+        cat_map = cls._get_category_map()
+        info = cat_map.get(key, {'name': key.replace('_', ' ').title(), 'color': 'gray', 'description': ''})
         return cls(
             name=info['name'],
             slug=key,
@@ -310,6 +320,7 @@ class FirestoreCategoryProxy:
 
     @classmethod
     def get_all_categories(cls, posts: list = None) -> list:
+        cat_map = cls._get_category_map()
         counts = {}
         if posts:
             for post in posts:
@@ -318,7 +329,7 @@ class FirestoreCategoryProxy:
                     cat_key = cat_key.slug
                 if cat_key:
                     counts[cat_key] = counts.get(cat_key, 0) + 1
-        return [cls.from_key(key, post_count=counts.get(key, 0)) for key in cls.CATEGORY_MAP]
+        return [cls.from_key(key, post_count=counts.get(key, 0)) for key in cat_map]
 
 
 @dataclass

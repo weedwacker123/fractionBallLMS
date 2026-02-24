@@ -46,6 +46,13 @@ FALLBACK_COURT_TYPES = [
     {'key': 'both', 'label': 'Both'},
 ]
 
+FALLBACK_COMMUNITY_CATEGORIES = [
+    {'key': 'question', 'label': 'Question', 'color': 'blue', 'description': 'Ask questions about activities, implementation, or math concepts.'},
+    {'key': 'discussion', 'label': 'Discussion', 'color': 'green', 'description': 'Share ideas, experiences, and teaching strategies.'},
+    {'key': 'resource_share', 'label': 'Resource Share', 'color': 'purple', 'description': 'Share helpful resources, worksheets, and materials.'},
+    {'key': 'announcement', 'label': 'Announcement', 'color': 'red', 'description': 'Official announcements and updates from the team.'},
+]
+
 
 def _get_firestore_client():
     """Get Firestore client - reuse from firestore_service"""
@@ -166,6 +173,29 @@ def get_court_types() -> List[Dict[str, Any]]:
     # Cache and return
     cache.set(cache_key, court_types, TAXONOMY_CACHE_TTL)
     return court_types
+
+
+def get_community_categories() -> List[Dict[str, Any]]:
+    """
+    Get community post categories from cache or Firestore
+
+    Returns:
+        List of dicts with 'key', 'label', 'color', 'description'
+    """
+    cache_key = 'taxonomy:community_categories'
+
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    categories = _fetch_taxonomy_from_firestore('community_category')
+
+    if not categories:
+        logger.warning("Using fallback community categories - Firestore unavailable or empty")
+        categories = FALLBACK_COMMUNITY_CATEGORIES
+
+    cache.set(cache_key, categories, TAXONOMY_CACHE_TTL)
+    return categories
 
 
 def get_grade_choices() -> List[Tuple[str, str]]:
@@ -346,12 +376,14 @@ def refresh_cache():
     cache.delete('taxonomy:topics')
     cache.delete('taxonomy:courtTypes')
     cache.delete('taxonomy:all_categories')
+    cache.delete('taxonomy:community_categories')
 
     # Pre-populate caches
     get_grade_levels()
     get_topics()
     get_court_types()
     get_all_taxonomy_categories()
+    get_community_categories()
 
     logger.info("Taxonomy caches refreshed")
 
@@ -367,4 +399,5 @@ def get_all_taxonomies() -> Dict[str, List[Dict[str, Any]]]:
         'grades': get_grade_levels(),
         'topics': get_topics(),
         'courtTypes': get_court_types(),
+        'communityCategories': get_community_categories(),
     }

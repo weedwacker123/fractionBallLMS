@@ -38,6 +38,28 @@ def get_storage_url(path: str) -> str:
     return f"https://firebasestorage.googleapis.com/v0/b/{FIREBASE_STORAGE_BUCKET}/o/{encoded_path}?alt=media"
 
 
+_EXT_TO_TYPE = {
+    '.pdf': 'pdf',
+    '.doc': 'doc', '.docx': 'docx',
+    '.ppt': 'ppt', '.pptx': 'pptx',
+    '.xls': 'xls', '.xlsx': 'xlsx',
+}
+
+
+def _infer_file_type(url: str) -> str:
+    """Infer file type from a Firebase Storage URL or path."""
+    if not url:
+        return 'pdf'
+    # Strip query params (e.g. ?alt=media&token=...)
+    path = url.split('?')[0]
+    # Check known extensions
+    lower = path.lower()
+    for ext, ftype in _EXT_TO_TYPE.items():
+        if lower.endswith(ext):
+            return ftype
+    return 'pdf'
+
+
 def home(request):
     """
     Main home page with activity cards - dynamically loaded from database.
@@ -190,7 +212,7 @@ def activity_detail(request, slug):
                 teacher_resources.append({
                     'title': res.get('title', 'Untitled'),
                     'caption': res.get('caption', ''),
-                    'type': res.get('type', 'pdf'),
+                    'type': _infer_file_type(res.get('fileUrl', '')),
                     'file_url': get_storage_url(res.get('fileUrl', '')),
                 })
         elif activity.teacher_resource_ids:
@@ -213,7 +235,7 @@ def activity_detail(request, slug):
                 student_resources.append({
                     'title': res.get('title', 'Untitled'),
                     'caption': res.get('caption', ''),
-                    'type': res.get('type', 'pdf'),
+                    'type': _infer_file_type(res.get('fileUrl', '')),
                     'file_url': get_storage_url(res.get('fileUrl', '')),
                 })
         elif activity.student_resource_ids:
@@ -238,19 +260,14 @@ def activity_detail(request, slug):
                     'slug': p.get('slug', ''),
                 })
 
-        # Get related activities: prefer CMS-curated refs, fall back to same-grade
+        # Get related activities (only CMS-curated, no auto-generation)
+        related_activities = []
         if activity.related_activity_refs:
             related_data = firestore_service.get_activities_by_ids(activity.related_activity_refs)
             related_activities = [
                 FirestoreActivity.from_dict(a) for a in related_data
                 if a.get('id') != activity.id
             ]
-        else:
-            related_data = firestore_service.query_activities(grade=activity.grade)
-            related_activities = [
-                FirestoreActivity.from_dict(a) for a in related_data
-                if a.get('id') != activity.id
-            ][:3]
 
     else:
         # Use Django ORM (fallback)

@@ -267,8 +267,8 @@ def create_post(request):
                         'category': post.category.name if post.category else None,
                         'status': 'active',
                         'viewCount': 0,
-                        'createdAt': post.created_at.isoformat(),
-                        'lastActivityAt': post.last_activity_at.isoformat()
+                        'createdAt': post.created_at,
+                        'lastActivityAt': post.last_activity_at
                     })
                 except Exception as e:
                     logger.warning(f"Failed to sync post to Firestore: {e}")
@@ -398,7 +398,7 @@ def add_comment(request, post_slug):
                     'authorId': request.user.firebase_uid,
                     'authorName': request.user.get_full_name(),
                     'parentCommentId': str(parent_comment.id) if parent_comment else None,
-                    'createdAt': comment.created_at.isoformat(),
+                    'createdAt': comment.created_at,
                     'isDeleted': False
                 })
             except Exception as e:
@@ -593,7 +593,7 @@ def flag_post(request, post_id):
             firestore_service.update_community_post(post_id, {
                 'isFlagged': True,
                 'flagReason': reason,
-                'flaggedAt': timezone.now().isoformat(),
+                'flaggedAt': timezone.now(),
                 'flaggedBy': user_uid,
                 'status': 'flagged',
             })
@@ -628,7 +628,7 @@ def flag_post(request, post_id):
                 firestore_service.update_community_post(str(post_id), {
                     'isFlagged': True,
                     'flagReason': reason,
-                    'flaggedAt': timezone.now().isoformat(),
+                    'flaggedAt': timezone.now(),
                     'flaggedBy': request.user.firebase_uid,
                     'status': 'flagged'
                 })
@@ -742,7 +742,7 @@ def edit_post(request, post_id):
                         'title': post.title,
                         'content': post.content,
                         'category': post.category.name if post.category else None,
-                        'updatedAt': timezone.now().isoformat()
+                        'updatedAt': timezone.now()
                     })
                 except Exception as e:
                     logger.warning(f"Failed to sync post update to Firestore: {e}")

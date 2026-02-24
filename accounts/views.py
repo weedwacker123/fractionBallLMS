@@ -210,8 +210,8 @@ def verify_token(request):
                 'displayName': user.get_full_name(),
                 'role': user.role,
                 'school': user.school.name if user.school else None,
-                'createdAt': user.created_at.isoformat() if hasattr(user, 'created_at') and user.created_at else None,
-                'lastLogin': timezone.now().isoformat()
+                'createdAt': user.created_at if hasattr(user, 'created_at') and user.created_at else None,
+                'lastLogin': timezone.now()
             })
         except Exception as e:
             logger.warning(f"Failed to sync user profile to Firestore: {e}")
@@ -373,7 +373,7 @@ def google_auth(request):
                 'displayName': user.get_full_name(),
                 'role': user.role,
                 'school': user.school.name if user.school else None,
-                'lastLogin': timezone.now().isoformat()
+                'lastLogin': timezone.now()
             })
         except Exception as e:
             logger.warning(f"Failed to sync user profile to Firestore: {e}")
