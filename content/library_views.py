@@ -11,7 +11,7 @@ from django.db import models
 from django.db.models import Count, Q, Avg
 from django.utils import timezone
 from datetime import datetime, timedelta
-from accounts.permissions import IsRegisteredUser
+from accounts.permissions import require_permission
 from .models import VideoAsset, Resource, Playlist
 from .serializers import VideoAssetSerializer, ResourceSerializer, PlaylistSerializer
 from .filters import VideoAssetFilter, ResourceFilter
@@ -34,7 +34,7 @@ class LibraryVideoListView(generics.ListAPIView):
     GET /api/library/videos/
     """
     serializer_class = VideoAssetSerializer
-    permission_classes = [IsRegisteredUser]
+    permission_classes = [require_permission('library.videos')]
     pagination_class = LibraryPagination
     filter_backends = [DjangoFilterBackend]
     filterset_class = VideoAssetFilter
@@ -49,7 +49,7 @@ class LibraryVideoListView(generics.ListAPIView):
         )
         
         # Non-owners can only see published videos (unless they're admins)
-        if not (self.request.user.is_admin or self.request.user.is_content_manager):
+        if not self.request.user.can('content.manage'):
             queryset = queryset.filter(
                 Q(owner=self.request.user) | Q(status='PUBLISHED')
             )
@@ -89,7 +89,7 @@ class LibraryResourceListView(generics.ListAPIView):
     GET /api/library/resources/
     """
     serializer_class = ResourceSerializer
-    permission_classes = [IsRegisteredUser]
+    permission_classes = [require_permission('library.resources')]
     pagination_class = LibraryPagination
     filter_backends = [DjangoFilterBackend]
     filterset_class = ResourceFilter
@@ -103,7 +103,7 @@ class LibraryResourceListView(generics.ListAPIView):
         )
         
         # Non-owners can only see published resources
-        if not (self.request.user.is_admin or self.request.user.is_content_manager):
+        if not self.request.user.can('content.manage'):
             queryset = queryset.filter(
                 Q(owner=self.request.user) | Q(status='PUBLISHED')
             )
@@ -123,7 +123,7 @@ class LibraryPlaylistListView(generics.ListAPIView):
     GET /api/library/playlists/
     """
     serializer_class = PlaylistSerializer
-    permission_classes = [IsRegisteredUser]
+    permission_classes = [require_permission('library.videos')]
     pagination_class = LibraryPagination
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['is_public', 'owner']
@@ -142,7 +142,7 @@ class LibraryPlaylistListView(generics.ListAPIView):
         )
         
         # Users can see their own playlists or public ones
-        if not (self.request.user.is_admin or self.request.user.is_content_manager):
+        if not self.request.user.can('content.manage'):
             queryset = queryset.filter(
                 Q(owner=self.request.user) | Q(is_public=True)
             )
@@ -156,7 +156,7 @@ class LibraryVideoDetailView(generics.RetrieveAPIView):
     GET /api/library/videos/{id}/
     """
     serializer_class = VideoAssetSerializer
-    permission_classes = [IsRegisteredUser]
+    permission_classes = [require_permission('library.videos')]
     
     def get_queryset(self):
         """Videos accessible to the user"""
@@ -171,12 +171,7 @@ class LibraryVideoDetailView(generics.RetrieveAPIView):
         video = super().get_object()
         
         # Check if user can access this video
-        if not (
-            video.owner == self.request.user or 
-            video.status == 'PUBLISHED' or
-            self.request.user.is_admin or 
-            self.request.user.is_content_manager
-        ):
+        if not self.request.user.can('activity.view', obj=video):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You don't have permission to view this video.")
         
@@ -189,7 +184,7 @@ class LibraryResourceDetailView(generics.RetrieveAPIView):
     GET /api/library/resources/{id}/
     """
     serializer_class = ResourceSerializer
-    permission_classes = [IsRegisteredUser]
+    permission_classes = [require_permission('library.resources')]
     
     def get_queryset(self):
         """Resources accessible to the user"""
@@ -204,12 +199,7 @@ class LibraryResourceDetailView(generics.RetrieveAPIView):
         resource = super().get_object()
         
         # Check if user can access this resource
-        if not (
-            resource.owner == self.request.user or 
-            resource.status == 'PUBLISHED' or
-            self.request.user.is_admin or 
-            self.request.user.is_content_manager
-        ):
+        if not self.request.user.can('resource.download', obj=resource):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You don't have permission to view this resource.")
         
@@ -217,7 +207,7 @@ class LibraryResourceDetailView(generics.RetrieveAPIView):
 
 
 @api_view(['GET'])
-@permission_classes([IsRegisteredUser])
+@permission_classes([require_permission('dashboard.view')])
 def teacher_dashboard(request):
     """
     Teacher dashboard with recent uploads, stats, and quick links
@@ -226,6 +216,11 @@ def teacher_dashboard(request):
     try:
         user = request.user
         school = user.school
+        if not school:
+            return Response(
+                {'error': 'User is not assigned to a school'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         # Calculate date ranges
         now = timezone.now()
@@ -348,7 +343,7 @@ def teacher_dashboard(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsRegisteredUser])
+@permission_classes([require_permission('dashboard.view')])
 def library_stats(request):
     """
     Library statistics and metadata
@@ -357,6 +352,11 @@ def library_stats(request):
     try:
         user = request.user
         school = user.school
+        if not school:
+            return Response(
+                {'error': 'User is not assigned to a school'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         # Get published content counts by category
         videos_by_grade = VideoAsset.objects.filter(
@@ -415,4 +415,3 @@ def library_stats(request):
             {'error': 'Failed to generate library stats', 'message': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-

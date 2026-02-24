@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 # Singleton Firestore client - reused across all requests to avoid
 # re-creating gRPC channels and re-parsing credentials on every call
 _firestore_client = None
+FIRESTORE_QUERY_TIMEOUT_SECONDS = 5
 
 
 def get_firestore_client():
@@ -67,7 +68,7 @@ def get_all_documents(collection_name: str) -> List[Dict[str, Any]]:
     """
     try:
         db = get_firestore_client()
-        docs = db.collection(collection_name).stream()
+        docs = db.collection(collection_name).stream(timeout=FIRESTORE_QUERY_TIMEOUT_SECONDS)
         
         results = []
         for doc in docs:
@@ -1099,5 +1100,4 @@ def delete_comment(post_id: str, comment_id: str) -> bool:
     except Exception as e:
         logger.error(f"Failed to delete comment from Firestore: {e}")
         return False
-
 

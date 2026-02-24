@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.core.paginator import Paginator
 from django.db.models import Q, Count, Avg
-from .permissions import IsAdmin, IsContentManager
+from .permissions import require_permission
 from .models import School
 from .serializers import UserSerializer, SchoolSerializer
 from content.models import AuditLog
@@ -27,7 +27,7 @@ class AdminUserViewSet(ModelViewSet):
     Admin-only user management with search, filtering, and role changes
     """
     serializer_class = UserSerializer
-    permission_classes = [IsAdmin]
+    permission_classes = [require_permission('users.manage')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['role', 'is_active', 'school']
     search_fields = ['username', 'email', 'first_name', 'last_name']
@@ -38,10 +38,10 @@ class AdminUserViewSet(ModelViewSet):
         """Get all users for admin, school-scoped for school admins"""
         user = self.request.user
         
-        if user.is_admin:
+        if user.can('schools.manage'):
             # System admins see all users
             return User.objects.select_related('school').all()
-        elif user.is_content_manager:
+        elif user.can('users.manage'):
             # School admins only see users from their school
             return User.objects.select_related('school').filter(
                 school=user.school
@@ -58,15 +58,17 @@ class AdminUserViewSet(ModelViewSet):
         """
         target_user = self.get_object()
         new_role = request.data.get('role')
-        
-        if not new_role or new_role not in [choice[0] for choice in User.Role.choices]:
+
+        from accounts.role_service import get_all_roles
+        valid_roles = get_all_roles().keys()
+        if not new_role or new_role not in valid_roles:
             return Response(
                 {'error': 'Valid role is required'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         # Permission checks
-        if request.user.is_content_manager:
+        if not request.user.can('schools.manage'):
             # School admins can only manage users in their school
             if target_user.school != request.user.school:
                 return Response(
@@ -75,7 +77,7 @@ class AdminUserViewSet(ModelViewSet):
                 )
             
             # School admins cannot create system admins
-            if new_role == User.Role.ADMIN:
+            if new_role == 'ADMIN':
                 return Response(
                     {'error': 'Cannot assign system admin role'}, 
                     status=status.HTTP_403_FORBIDDEN
@@ -120,7 +122,7 @@ class AdminUserViewSet(ModelViewSet):
         target_user = self.get_object()
         
         # Permission checks for school admins
-        if request.user.is_content_manager and target_user.school != request.user.school:
+        if not request.user.can('schools.manage') and target_user.school != request.user.school:
             return Response(
                 {'error': 'Cannot manage users outside your school'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -161,7 +163,7 @@ class AdminUserViewSet(ModelViewSet):
         target_user = self.get_object()
         
         # Permission checks for school admins
-        if request.user.is_content_manager and target_user.school != request.user.school:
+        if not request.user.can('schools.manage') and target_user.school != request.user.school:
             return Response(
                 {'error': 'Cannot manage users outside your school'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -271,7 +273,7 @@ class SchoolAdminViewSet(ModelViewSet):
     School management for system admins
     """
     serializer_class = SchoolSerializer
-    permission_classes = [IsAdmin]  # Only system admins
+    permission_classes = [require_permission('schools.manage')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['is_active']
     search_fields = ['name', 'domain']
@@ -329,8 +331,9 @@ class SchoolAdminViewSet(ModelViewSet):
         user_stats = User.objects.filter(school=school).aggregate(
             total_users=Count('id'),
             active_users=Count('id', filter=Q(is_active=True)),
-            teachers=Count('id', filter=Q(role=User.Role.TEACHER)),
-            school_admins=Count('id', filter=Q(role=User.Role.SCHOOL_ADMIN)),
+            admins=Count('id', filter=Q(role='ADMIN')),
+            content_managers=Count('id', filter=Q(role='CONTENT_MANAGER')),
+            registered_users=Count('id', filter=Q(role='REGISTERED_USER')),
         )
         
         # Content statistics
@@ -367,7 +370,7 @@ class SchoolAdminViewSet(ModelViewSet):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdmin])
+@permission_classes([require_permission('schools.manage')])
 def admin_dashboard(request):
     """
     System admin dashboard with platform-wide statistics
@@ -382,9 +385,9 @@ def admin_dashboard(request):
         user_stats = User.objects.aggregate(
             total_users=Count('id'),
             active_users=Count('id', filter=Q(is_active=True)),
-            system_admins=Count('id', filter=Q(role=User.Role.ADMIN)),
-            school_admins=Count('id', filter=Q(role=User.Role.SCHOOL_ADMIN)),
-            teachers=Count('id', filter=Q(role=User.Role.TEACHER)),
+            system_admins=Count('id', filter=Q(role='ADMIN')),
+            content_managers=Count('id', filter=Q(role='CONTENT_MANAGER')),
+            registered_users=Count('id', filter=Q(role='REGISTERED_USER')),
         )
         
         # Content statistics
@@ -457,9 +460,6 @@ def admin_dashboard(request):
             {'error': 'Failed to generate dashboard', 'message': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
-
-
 
 
 

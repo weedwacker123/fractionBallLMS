@@ -1,10 +1,75 @@
 from rest_framework import permissions
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from functools import wraps
+from accounts import rbac
+
+
+def require_permission(permission_key: str):
+    """
+    Factory that returns a DRF permission class for a given permission key.
+    Usage: permission_classes = [require_permission('content.manage')]
+    """
+    class DynamicPermission(permissions.BasePermission):
+        def has_permission(self, request, view):
+            return rbac.can(request.user, permission_key)
+    DynamicPermission.__name__ = f'HasPerm_{permission_key}'
+    DynamicPermission.__qualname__ = f'HasPerm_{permission_key}'
+    return DynamicPermission
+
+
+def require_permission_view(permission_key: str):
+    """Decorator for Django views to enforce RBAC permission keys."""
+    def decorator(view_func):
+        @login_required
+        @wraps(view_func)
+        def _wrapped(request, *args, **kwargs):
+            decision = rbac.decide(request.user, permission_key)
+            if decision.allowed:
+                return view_func(request, *args, **kwargs)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": f"Access denied ({decision.reason}) for {permission_key}",
+                },
+                status=403,
+            )
+        return _wrapped
+    return decorator
+
+
+def require_action(action: str):
+    """DRF permission class factory based on centralized RBAC actions."""
+    class DynamicActionPermission(permissions.BasePermission):
+        def has_permission(self, request, view):
+            return rbac.can(request.user, action)
+    DynamicActionPermission.__name__ = f'HasAction_{action.replace(".", "_")}'
+    DynamicActionPermission.__qualname__ = DynamicActionPermission.__name__
+    return DynamicActionPermission
+
+
+def require_action_view(action: str):
+    """Django view decorator based on centralized RBAC actions."""
+    def decorator(view_func):
+        @login_required
+        @wraps(view_func)
+        def _wrapped(request, *args, **kwargs):
+            decision = rbac.decide(request.user, action)
+            if decision.allowed:
+                return view_func(request, *args, **kwargs)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": f"Access denied ({decision.reason}) for {action}",
+                },
+                status=403,
+            )
+        return _wrapped
+    return decorator
 
 
 class IsAdmin(permissions.BasePermission):
-    """
-    Permission class for system administrators only
-    """
+    """Permission class for system administrators only"""
 
     def has_permission(self, request, view):
         return (
@@ -15,52 +80,40 @@ class IsAdmin(permissions.BasePermission):
 
 
 class IsContentManager(permissions.BasePermission):
-    """
-    Permission class for content managers (can manage content without approval)
-    As per TRD: Content managers can create, edit, delete content and publish directly
-    """
+    """Permission class for content managers (can manage content without approval)"""
 
     def has_permission(self, request, view):
         return (
             request.user and
             request.user.is_authenticated and
-            (request.user.is_admin or request.user.is_content_manager)
+            (request.user.is_admin or request.user.has_perm_key('content.manage'))
         )
 
 
 class CanManageContent(permissions.BasePermission):
-    """
-    Permission class for users who can create/edit/delete content
-    Includes: Admin, Content Manager
-    """
+    """Permission class for users who can create/edit/delete content"""
 
     def has_permission(self, request, view):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.can_manage_content
+            request.user.has_perm_key('content.manage')
         )
 
 
 class HasCMSAccess(permissions.BasePermission):
-    """
-    Permission class for users with CMS/Admin interface access
-    As per TRD: Only Admin and Content Manager have CMS access
-    """
+    """Permission class for users with CMS/Admin interface access"""
 
     def has_permission(self, request, view):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.has_cms_access
+            request.user.has_perm_key('cms.access')
         )
 
 
 class IsRegisteredUser(permissions.BasePermission):
-    """
-    Permission class for any authenticated registered user.
-    All authenticated users have at least REGISTERED_USER level access.
-    """
+    """Permission class for any authenticated registered user."""
 
     def has_permission(self, request, view):
         return (
@@ -70,24 +123,18 @@ class IsRegisteredUser(permissions.BasePermission):
 
 
 class CanModerateCommunity(permissions.BasePermission):
-    """
-    Permission class for community moderation (Admin or Content Manager).
-    Moderators can delete/edit posts, lock threads, pin posts, and manage flags.
-    """
+    """Permission class for community moderation."""
 
     def has_permission(self, request, view):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.can_moderate_community
+            request.user.has_perm_key('community.moderate')
         )
 
 
 class IsOwner(permissions.BasePermission):
-    """
-    Permission class for resource owners.
-    Allows users to manage their own resources.
-    """
+    """Permission class for resource owners."""
 
     def has_permission(self, request, view):
         return (
@@ -96,14 +143,10 @@ class IsOwner(permissions.BasePermission):
         )
 
     def has_object_permission(self, request, view, obj):
-        # System admins can access everything
         if request.user.is_admin:
             return True
-
-        # Users can access their own resources
         if hasattr(obj, 'owner'):
             return obj.owner == request.user
         if hasattr(obj, 'author'):
             return obj.author == request.user
-
         return False

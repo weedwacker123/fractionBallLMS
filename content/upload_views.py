@@ -7,10 +7,10 @@ import logging
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 
+from accounts.permissions import require_permission
 from .firebase_storage import get_storage_service
 from .models import VideoAsset, Resource
 from .serializers import VideoAssetSerializer, ResourceSerializer
@@ -23,7 +23,7 @@ class FileUploadViewSet(viewsets.ViewSet):
     """
     ViewSet for file upload operations using Firebase Storage
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [require_permission('content.manage')]
     
     @action(detail=False, methods=['post'], url_path='request-upload')
     def request_upload(self, request):
@@ -359,7 +359,7 @@ class FileUploadViewSet(viewsets.ViewSet):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([require_permission('library.videos')])
 def get_streaming_url(request, video_id):
     """
     Get a streaming URL for a video
@@ -375,8 +375,11 @@ def get_streaming_url(request, video_id):
     try:
         video = VideoAsset.objects.get(id=video_id)
         
-        # Check if user has permission to view
-        # (Add your permission logic here)
+        # Enforce school and visibility constraints at object level.
+        if video.school != request.user.school:
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        if not request.user.can('video.stream', obj=video):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
         
         # Use model method to generate streaming URL
         streaming_url = video.get_streaming_url(expiration_minutes=60)
@@ -406,7 +409,7 @@ def get_streaming_url(request, video_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([require_permission('library.resources')])
 def get_resource_download_url(request, resource_id):
     """
     Get a download URL for a resource
@@ -423,8 +426,11 @@ def get_resource_download_url(request, resource_id):
     try:
         resource = Resource.objects.get(id=resource_id)
         
-        # Check if user has permission to download
-        # (Add your permission logic here)
+        # Enforce school and visibility constraints at object level.
+        if resource.school != request.user.school:
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        if not request.user.can('resource.download', obj=resource):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
         
         # Use model method to generate download URL
         download_url = resource.get_download_url(expiration_minutes=60)
@@ -452,4 +458,3 @@ def get_resource_download_url(request, resource_id):
             {'error': 'Failed to generate download URL'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-

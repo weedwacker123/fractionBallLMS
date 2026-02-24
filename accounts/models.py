@@ -38,12 +38,11 @@ class User(AbstractUser):
     # Firebase integration
     firebase_uid = models.CharField(max_length=128, unique=True, help_text="Firebase User ID")
 
-    # Role and organization
+    # Role and organization — role key references Firestore roles collection
     role = models.CharField(
-        max_length=20,
-        choices=Role.choices,
-        default=Role.REGISTERED_USER,
-        help_text="User role determines access permissions"
+        max_length=50,
+        default='REGISTERED_USER',
+        help_text="Role key from Firestore roles collection"
     )
     school = models.ForeignKey(
         School, 
@@ -78,32 +77,53 @@ class User(AbstractUser):
             return f"{self.first_name} {self.last_name}"
         return self.username
 
+    def get_role_display(self):
+        """Return human-readable role name from Firestore roles, with fallback."""
+        from accounts.role_service import get_role_names
+        names = get_role_names()
+        return names.get(self.role, self.role)
+
+    def has_perm_key(self, permission_key: str) -> bool:
+        """
+        Check if the user's role grants a specific permission.
+        Uses per-request caching to avoid repeated Firestore/cache lookups.
+        """
+        if not hasattr(self, '_perm_cache'):
+            from accounts.role_service import get_role_permissions
+            self._perm_cache = get_role_permissions(self.role)
+        return self._perm_cache.get(permission_key, False)
+
+    def can(self, action: str, obj=None) -> bool:
+        """Centralized action check helper."""
+        from accounts.rbac import can
+        return can(self, action, obj=obj)
+
     @property
     def is_admin(self):
-        """Check if user is a site administrator"""
-        return self.role == self.Role.ADMIN
+        """Check if user is a site administrator (identity check)"""
+        return self.role == 'ADMIN'
 
     @property
     def is_content_manager(self):
-        """Check if user is a content manager (can create/edit content without approval)"""
-        return self.role == self.Role.CONTENT_MANAGER
+        """Check if user has content management permissions"""
+        return self.has_perm_key('content.manage')
 
     @property
     def is_registered_user(self):
-        """Check if user is a registered user (basic access)"""
-        return self.role == self.Role.REGISTERED_USER
+        """Check if user is a basic registered user"""
+        return self.role == 'REGISTERED_USER'
 
     @property
     def can_manage_content(self):
-        """Check if user can create/edit/delete content (Admin or Content Manager)"""
-        return self.role in [self.Role.ADMIN, self.Role.CONTENT_MANAGER]
+        """Check if user can create/edit/delete content"""
+        return self.has_perm_key('content.manage')
 
     @property
     def has_cms_access(self):
         """Check if user has access to CMS/Admin interface"""
-        return self.role in [self.Role.ADMIN, self.Role.CONTENT_MANAGER]
+        return self.has_perm_key('cms.access')
 
     @property
     def can_moderate_community(self):
-        """Check if user can moderate community posts (Admin or Content Manager)"""
-        return self.role in [self.Role.ADMIN, self.Role.CONTENT_MANAGER]
+        """Check if user can moderate community posts"""
+        return self.has_perm_key('community.moderate')

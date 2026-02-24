@@ -10,7 +10,7 @@ from django.db.models import Count, Sum, Avg, Q
 from django.utils import timezone
 from django.http import HttpResponse, StreamingHttpResponse
 from datetime import datetime, timedelta
-from accounts.permissions import IsRegisteredUser, IsContentManager, IsAdmin
+from accounts.permissions import require_permission
 from .models import VideoAsset, Resource, AssetView, AssetDownload, AuditLog
 from accounts.models import School
 import csv
@@ -29,7 +29,7 @@ class Echo:
 
 
 @api_view(['GET'])
-@permission_classes([IsContentManager | IsAdmin])
+@permission_classes([require_permission('reports.view')])
 def export_views_report(request):
     """
     Export video views report as CSV
@@ -70,10 +70,10 @@ def export_views_report(request):
             viewed_at__date__lte=end_date
         )
         
-        if request.user.is_school_admin:
+        if not request.user.can('schools.manage') and request.user.school:
             # School admin can only see their school's data
             views_query = views_query.filter(asset__school=request.user.school)
-        elif school_id and request.user.is_admin:
+        elif school_id and request.user.can('schools.manage'):
             # System admin can filter by specific school
             try:
                 views_query = views_query.filter(asset__school_id=school_id)
@@ -144,7 +144,7 @@ def export_views_report(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsContentManager | IsAdmin])
+@permission_classes([require_permission('reports.view')])
 def export_downloads_report(request):
     """
     Export resource downloads report as CSV
@@ -179,9 +179,9 @@ def export_downloads_report(request):
             downloaded_at__date__lte=end_date
         )
         
-        if request.user.is_school_admin:
+        if not request.user.can('schools.manage') and request.user.school:
             downloads_query = downloads_query.filter(resource__school=request.user.school)
-        elif school_id and request.user.is_admin:
+        elif school_id and request.user.can('schools.manage'):
             try:
                 downloads_query = downloads_query.filter(resource__school_id=school_id)
             except ValueError:
@@ -249,7 +249,7 @@ def export_downloads_report(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsContentManager | IsAdmin])
+@permission_classes([require_permission('reports.view')])
 def export_content_report(request):
     """
     Export content inventory report as CSV
@@ -277,9 +277,9 @@ def export_content_report(request):
             ).all()
         
         # Apply filters
-        if request.user.is_school_admin:
+        if not request.user.can('schools.manage') and request.user.school:
             content_query = content_query.filter(school=request.user.school)
-        elif school_id and request.user.is_admin:
+        elif school_id and request.user.can('schools.manage'):
             try:
                 content_query = content_query.filter(school_id=school_id)
             except ValueError:
@@ -375,7 +375,7 @@ def export_content_report(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsContentManager | IsAdmin])
+@permission_classes([require_permission('reports.view')])
 def export_analytics_summary(request):
     """
     Export analytics summary report as CSV
@@ -402,7 +402,7 @@ def export_analytics_summary(request):
         
         # Get school filter
         school_filter = Q()
-        if request.user.is_school_admin:
+        if not request.user.can('schools.manage') and request.user.school:
             school_filter = Q(school=request.user.school)
         
         # Get video analytics
@@ -471,7 +471,7 @@ def export_analytics_summary(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsContentManager | IsAdmin])
+@permission_classes([require_permission('reports.view')])
 def reports_dashboard(request):
     """
     Reports dashboard with available reports and recent exports
@@ -547,8 +547,8 @@ def reports_dashboard(request):
                 'user_exports': user_exports
             },
             'user_permissions': {
-                'can_export_school_data': request.user.is_school_admin or request.user.is_admin,
-                'can_export_all_schools': request.user.is_admin,
+                'can_export_school_data': request.user.can('reports.view') and bool(request.user.school),
+                'can_export_all_schools': request.user.can('schools.manage'),
                 'school_name': request.user.school.name if request.user.school else None
             }
         })
@@ -569,8 +569,6 @@ def get_client_ip(request):
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
-
-
 
 
 

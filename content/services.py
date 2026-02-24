@@ -42,22 +42,22 @@ class FirebaseStorageService:
     @property
     def MAX_VIDEO_SIZE(self):
         """Get max video size from CMS config or use default"""
-        return site_config_service.get_max_video_size(self._DEFAULT_MAX_VIDEO_SIZE)
+        return site_config_service.get_max_video_size()
 
     @property
     def MAX_RESOURCE_SIZE(self):
         """Get max resource size from CMS config or use default"""
-        return site_config_service.get_max_resource_size(self._DEFAULT_MAX_RESOURCE_SIZE)
+        return site_config_service.get_max_resource_size()
 
     @property
     def ALLOWED_VIDEO_TYPES(self):
         """Get allowed video types from CMS config or use default"""
-        return site_config_service.get_allowed_video_types(self._DEFAULT_VIDEO_TYPES)
+        return site_config_service.get_allowed_video_types()
 
     @property
     def ALLOWED_RESOURCE_TYPES(self):
         """Get allowed resource types from CMS config or use default"""
-        return site_config_service.get_allowed_resource_types(self._DEFAULT_RESOURCE_TYPES)
+        return site_config_service.get_allowed_resource_types()
 
     def __init__(self):
         """Initialize Firebase Storage client"""

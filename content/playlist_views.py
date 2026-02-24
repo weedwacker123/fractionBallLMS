@@ -15,11 +15,23 @@ import uuid
 logger = logging.getLogger(__name__)
 
 
+def _require_playlist_access(request):
+    if not request.user.can('library.videos.view'):
+        return JsonResponse({
+            'success': False,
+            'message': 'Missing required permission: library.videos'
+        }, status=403)
+    return None
+
+
 @login_required
 def my_playlists(request):
     """
     View user's playlists
     """
+    denied = _require_playlist_access(request)
+    if denied:
+        return denied
     # Get user's own playlists
     my_playlists = Playlist.objects.filter(
         owner=request.user
@@ -49,6 +61,9 @@ def playlist_detail(request, playlist_id):
     """
     View details of a specific playlist
     """
+    denied = _require_playlist_access(request)
+    if denied:
+        return denied
     playlist = get_object_or_404(Playlist, id=playlist_id)
     
     # Check access permissions
@@ -102,6 +117,9 @@ def create_playlist(request):
     """
     Create a new playlist
     """
+    denied = _require_playlist_access(request)
+    if denied:
+        return denied
     if request.method == 'POST':
         try:
             name = request.POST.get('name', '').strip()
@@ -155,6 +173,9 @@ def add_to_playlist(request):
     """
     Add an activity/video to a playlist
     """
+    denied = _require_playlist_access(request)
+    if denied:
+        return denied
     try:
         activity_id = request.POST.get('activity_id')
         playlist_id = request.POST.get('playlist_id')
@@ -227,6 +248,9 @@ def remove_from_playlist(request, item_id):
     """
     Remove an item from a playlist
     """
+    denied = _require_playlist_access(request)
+    if denied:
+        return denied
     try:
         item = get_object_or_404(PlaylistItem, id=item_id)
         
@@ -261,6 +285,9 @@ def delete_playlist(request, playlist_id):
     """
     Delete a playlist
     """
+    denied = _require_playlist_access(request)
+    if denied:
+        return denied
     try:
         playlist = get_object_or_404(Playlist, id=playlist_id, owner=request.user)
         
@@ -288,6 +315,9 @@ def duplicate_playlist(request, playlist_id):
     """
     Duplicate a playlist
     """
+    denied = _require_playlist_access(request)
+    if denied:
+        return denied
     try:
         original = get_object_or_404(Playlist, id=playlist_id)
         
@@ -346,6 +376,9 @@ def create_share_link(request, playlist_id):
     """
     Create a shareable link for a playlist
     """
+    denied = _require_playlist_access(request)
+    if denied:
+        return denied
     try:
         playlist = get_object_or_404(Playlist, id=playlist_id, owner=request.user)
         
@@ -388,6 +421,9 @@ def view_shared_playlist(request, share_token):
     """
     View a playlist via share link
     """
+    denied = _require_playlist_access(request)
+    if denied:
+        return denied
     try:
         share = get_object_or_404(PlaylistShare, share_token=share_token, is_active=True)
         
@@ -418,6 +454,9 @@ def update_playlist_settings(request, playlist_id):
     """
     Update playlist settings (name, description, visibility)
     """
+    denied = _require_playlist_access(request)
+    if denied:
+        return denied
     try:
         playlist = get_object_or_404(Playlist, id=playlist_id, owner=request.user)
         
@@ -452,6 +491,9 @@ def get_user_playlists_json(request):
     """
     Get user's playlists as JSON (for AJAX dropdown)
     """
+    denied = _require_playlist_access(request)
+    if denied:
+        return denied
     playlists = Playlist.objects.filter(
         owner=request.user
     ).values('id', 'name', 'description').order_by('-updated_at')
@@ -469,6 +511,9 @@ def duplicate_shared_playlist(request, share_token):
     """
     Duplicate a playlist from a share link
     """
+    denied = _require_playlist_access(request)
+    if denied:
+        return denied
     try:
         share = get_object_or_404(PlaylistShare, share_token=share_token, is_active=True)
         

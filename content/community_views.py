@@ -5,7 +5,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods, require_POST
-from django.http import JsonResponse, Http404
+from django.http import JsonResponse, Http404, HttpResponseForbidden
 from django.utils.text import slugify
 from django.utils import timezone
 from django.db.models import Q, Count
@@ -38,10 +38,21 @@ def _get_form_context():
     return {'categories': categories, 'activities': activities}
 
 
+def _can_community_access(user):
+    return user.is_authenticated and user.can('community.create')
+
+
+def _can_moderate_community(user):
+    return user.is_authenticated and user.can('community.moderate')
+
+
 def community_home(request):
     """
     Main community page with forum posts
     """
+    if not _can_community_access(request.user):
+        return HttpResponseForbidden("Missing required permission: community.create")
+
     # Get filter parameters
     category_slug = request.GET.get('category', '')
     search_query = request.GET.get('q', '')
@@ -95,6 +106,9 @@ def post_detail(request, slug):
     """
     Individual post detail page with comments
     """
+    if not _can_community_access(request.user):
+        return HttpResponseForbidden("Missing required permission: community.create")
+
     use_firestore = _use_firestore()
     used_firestore = False
     is_author = False
@@ -171,6 +185,9 @@ def create_post(request):
     """
     Create a new forum post
     """
+    if not _can_community_access(request.user):
+        return HttpResponseForbidden("Missing required permission: community.create")
+
     if request.method == 'POST':
         try:
             title = request.POST.get('title', '').strip()
@@ -290,6 +307,12 @@ def add_comment(request, post_slug):
     """
     Add a comment to a post
     """
+    if not _can_community_access(request.user):
+        return JsonResponse(
+            {'success': False, 'message': 'Missing required permission: community.create'},
+            status=403
+        )
+
     try:
         if _use_firestore():
             # Firestore path
@@ -440,7 +463,7 @@ def delete_post(request, post_id):
 
             user_uid = getattr(request.user, 'firebase_uid', '')
             is_author = post_data.get('authorId') == user_uid
-            if not is_author and not request.user.is_staff:
+            if not is_author and not _can_moderate_community(request.user):
                 return JsonResponse({
                     'success': False,
                     'message': 'You do not have permission to delete this post'
@@ -458,7 +481,7 @@ def delete_post(request, post_id):
             post = get_object_or_404(ForumPost, id=post_id)
 
             # Check permission (must be author or admin)
-            if post.author != request.user and not request.user.is_staff:
+            if post.author != request.user and not _can_moderate_community(request.user):
                 return JsonResponse({
                     'success': False,
                     'message': 'You do not have permission to delete this post'
@@ -512,7 +535,7 @@ def delete_comment(request, post_id, comment_id):
             user_uid = getattr(request.user, 'firebase_uid', '')
             is_own = comment_data.get('authorId') == user_uid
 
-            if not is_own and not request.user.is_staff:
+            if not is_own and not _can_moderate_community(request.user):
                 return JsonResponse({
                     'success': False,
                     'message': 'You do not have permission to delete this comment'
@@ -529,7 +552,7 @@ def delete_comment(request, post_id, comment_id):
             comment = get_object_or_404(ForumComment, id=comment_id)
 
             # Check permission
-            if comment.author != request.user and not request.user.is_staff:
+            if comment.author != request.user and not _can_moderate_community(request.user):
                 return JsonResponse({
                     'success': False,
                     'message': 'You do not have permission to delete this comment'
@@ -567,6 +590,12 @@ def flag_post(request, post_id):
     Flag a post as inappropriate for moderator review
     Teachers can flag posts, admins will see them in CMS
     """
+    if not _can_community_access(request.user):
+        return JsonResponse(
+            {'success': False, 'message': 'Missing required permission: community.create'},
+            status=403
+        )
+
     try:
         if _use_firestore():
             post_data = firestore_service.get_document('communityPosts', post_id)
@@ -658,6 +687,9 @@ def edit_post(request, post_id):
     """
     Edit an existing post (author only)
     """
+    if not _can_community_access(request.user):
+        return HttpResponseForbidden("Missing required permission: community.create")
+
     if _use_firestore():
         post_data = firestore_service.get_document('communityPosts', post_id)
         if not post_data:

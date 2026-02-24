@@ -2,15 +2,15 @@
 Resource download views with tracking
 """
 from django.shortcuts import get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
+from accounts.permissions import require_permission_view
 from .models import Resource, AssetDownload
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-@login_required
+@require_permission_view('library.resources')
 def track_and_download_resource(request, resource_id):
     """
     Track resource download and redirect to signed URL
@@ -18,8 +18,8 @@ def track_and_download_resource(request, resource_id):
     try:
         resource = get_object_or_404(Resource, id=resource_id)
         
-        # Check if resource is accessible (published or owned by user)
-        if resource.status != 'PUBLISHED' and resource.owner != request.user:
+        # Centralized RBAC object check controls school/ownership/published scope.
+        if not request.user.can('resource.download', obj=resource):
             return JsonResponse({
                 'success': False,
                 'message': 'Resource not accessible'
@@ -51,4 +51,3 @@ def track_and_download_resource(request, resource_id):
             'success': False,
             'message': f'Download failed: {str(e)}'
         }, status=500)
-

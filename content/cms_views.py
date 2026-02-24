@@ -16,11 +16,13 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-def is_staff_or_admin(user):
-    """Check if user is staff or admin"""
+def has_cms_access(user):
+    """Check whether user can access CMS via centralized RBAC."""
     if not user.is_authenticated:
         return False
-    return user.is_staff or user.is_superuser or getattr(user, 'role', '') in ['ADMIN', 'CONTENT_MANAGER']
+    if getattr(user, 'is_superuser', False):
+        return True
+    return user.can('cms.access')
 
 
 @ensure_csrf_cookie
@@ -29,7 +31,7 @@ def cms_login(request):
     logger.info(f"CMS Login - Method: {request.method}, User authenticated: {request.user.is_authenticated}")
     
     if request.user.is_authenticated:
-        if is_staff_or_admin(request.user):
+        if has_cms_access(request.user):
             logger.info(f"User {request.user.username} already authenticated, redirecting to dashboard")
             return redirect('cms:dashboard')
         else:
@@ -49,8 +51,8 @@ def cms_login(request):
         user = authenticate(request, username=username, password=password)
         
         if user is not None:
-            logger.info(f"User {username} authenticated successfully, is_staff: {user.is_staff}, is_superuser: {user.is_superuser}")
-            if is_staff_or_admin(user):
+            logger.info(f"User {username} authenticated successfully")
+            if has_cms_access(user):
                 login(request, user)
                 logger.info(f"User {username} logged in successfully")
                 messages.success(request, f'Welcome back, {user.get_full_name() or user.username}!')
@@ -69,7 +71,7 @@ def cms_login(request):
 
 
 @login_required(login_url='/cms/login/')
-@user_passes_test(is_staff_or_admin, login_url='/cms/login/')
+@user_passes_test(has_cms_access, login_url='/cms/login/')
 def cms_dashboard(request):
     """CMS Dashboard with stats and quick actions"""
     
@@ -100,4 +102,3 @@ def cms_logout(request):
     logout(request)
     messages.success(request, 'You have been signed out successfully.')
     return redirect('cms:login')
-

@@ -152,23 +152,25 @@ def verify_token(request):
         # Sync role FROM Firestore (single source of truth)
         try:
             from content.firestore_service import get_user_role
+            from accounts.role_service import get_all_roles
             firestore_role = get_user_role(firebase_uid)
 
             if firestore_role:
-                # Map legacy Firestore roles to current 3-tier system
+                # Map legacy Firestore roles
                 LEGACY_ROLE_MAP = {
                     'SCHOOL_ADMIN': 'REGISTERED_USER',
                     'TEACHER': 'REGISTERED_USER',
                 }
                 normalized_role = LEGACY_ROLE_MAP.get(firestore_role, firestore_role)
 
-                valid_roles = ['ADMIN', 'CONTENT_MANAGER', 'REGISTERED_USER']
-                if normalized_role in valid_roles and user.role != normalized_role:
+                # Validate against dynamically loaded roles
+                known_roles = get_all_roles()
+                if normalized_role in known_roles and user.role != normalized_role:
                     user.role = normalized_role
                     user.save(update_fields=['role'])
                     logger.info(f"Synced role from Firestore: {user.email} -> {normalized_role}"
                                 + (f" (mapped from legacy '{firestore_role}')" if firestore_role != normalized_role else ""))
-                elif normalized_role not in valid_roles:
+                elif normalized_role not in known_roles:
                     logger.warning(f"Unknown Firestore role '{firestore_role}' for user {user.email}; skipping role sync")
         except Exception as e:
             logger.warning(f"Failed to sync role from Firestore: {e}")
@@ -337,12 +339,13 @@ def google_auth(request):
         # Sync role from Firestore (non-blocking)
         try:
             from content.firestore_service import get_user_role
+            from accounts.role_service import get_all_roles
             firestore_role = get_user_role(firebase_uid)
             if firestore_role:
                 LEGACY_ROLE_MAP = {'SCHOOL_ADMIN': 'REGISTERED_USER', 'TEACHER': 'REGISTERED_USER'}
                 normalized_role = LEGACY_ROLE_MAP.get(firestore_role, firestore_role)
-                valid_roles = ['ADMIN', 'CONTENT_MANAGER', 'REGISTERED_USER']
-                if normalized_role in valid_roles and user.role != normalized_role:
+                known_roles = get_all_roles()
+                if normalized_role in known_roles and user.role != normalized_role:
                     user.role = normalized_role
                     user.save(update_fields=['role'])
         except Exception as e:

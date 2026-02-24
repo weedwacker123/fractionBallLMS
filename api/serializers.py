@@ -95,12 +95,19 @@ class MeSerializer(serializers.ModelSerializer):
         ]
     
     def get_permissions(self, obj):
-        """Get user permissions for frontend"""
-        return {
-            'is_admin': obj.is_admin,
-            'is_school_admin': obj.is_school_admin,
-            'is_teacher': obj.is_teacher,
-            'can_manage_users': obj.is_admin or obj.is_school_admin,
-            'can_manage_content': True,  # All authenticated users can manage content
-            'can_approve_content': obj.is_admin or obj.is_school_admin,
+        """Get user permissions, including legacy keys for backward compatibility."""
+        from accounts.role_service import get_role_permissions, PERMISSION_KEYS
+        perms = get_role_permissions(obj.role)
+        dynamic_permissions = {key: perms.get(key, False) for key in PERMISSION_KEYS}
+
+        # Keep legacy permission keys so older clients don't break during rollout.
+        legacy_permissions = {
+            'is_admin': obj.role == 'ADMIN',
+            'is_school_admin': obj.role == 'SCHOOL_ADMIN',
+            'is_teacher': obj.role in ['REGISTERED_USER', 'TEACHER'],
+            'can_manage_users': dynamic_permissions.get('users.manage', False),
+            'can_manage_content': dynamic_permissions.get('content.manage', False),
+            'can_approve_content': dynamic_permissions.get('content.approve', False),
         }
+
+        return {**legacy_permissions, **dynamic_permissions}

@@ -8,6 +8,7 @@ from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse, Http404
 from django.db.models import Q
 from django.conf import settings
+from accounts.permissions import require_permission_view
 from .models import VideoAsset, Resource, Activity, AssetView, AssetDownload
 from . import firestore_service
 from . import taxonomy_service
@@ -177,7 +178,7 @@ def home(request):
     return render(request, 'home.html', context)
 
 
-@login_required
+@require_permission_view('library.videos')
 def activity_detail(request, slug):
     """
     Activity detail page with prerequisites, objectives, materials, etc.
@@ -370,7 +371,7 @@ def activity_detail(request, slug):
     return render(request, 'activity_detail.html', context)
 
 
-@login_required
+@require_permission_view('community.create')
 def community(request):
     """
     Community page for teacher collaboration. Requires authentication.
@@ -419,7 +420,7 @@ def faq(request):
     return render(request, 'faq.html', context)
 
 
-@login_required
+@require_permission_view('notes.access')
 def my_notes(request):
     """
     User's notes on activities
@@ -555,4 +556,5 @@ def search_activities(request):
 
 
 
-
+    if not request.user.is_authenticated or not request.user.can('activity.view'):
+        return JsonResponse({'success': False, 'message': 'Missing required permission: library.videos'}, status=403)

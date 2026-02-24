@@ -6,7 +6,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
 from django.shortcuts import render
 from accounts.models import School
-from accounts.permissions import IsAdmin
+from accounts.permissions import require_permission
 from .serializers import (
     UserSerializer, UserCreateSerializer, MeSerializer,
     SchoolSerializer
@@ -49,7 +49,7 @@ class SchoolViewSet(ModelViewSet):
     """
     queryset = School.objects.all()
     serializer_class = SchoolSerializer
-    permission_classes = [IsAdmin]
+    permission_classes = [require_permission('schools.manage')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['is_active']
     search_fields = ['name', 'domain']
@@ -67,7 +67,7 @@ class UserViewSet(ModelViewSet):
     """
     queryset = User.objects.select_related('school').all()
     serializer_class = UserSerializer
-    permission_classes = [IsAdmin]
+    permission_classes = [require_permission('users.manage')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['role', 'school', 'is_active']
     search_fields = ['username', 'email', 'first_name', 'last_name']
@@ -87,7 +87,7 @@ class SchoolUserListView(generics.ListAPIView):
     GET /api/schools/{id}/users/
     """
     serializer_class = UserSerializer
-    permission_classes = [IsAdmin]
+    permission_classes = [require_permission('users.manage')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['role', 'is_active']
 

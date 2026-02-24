@@ -5,7 +5,7 @@ from rest_framework.viewsets import ModelViewSet
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
 from django.db import models
-from accounts.permissions import IsRegisteredUser, IsOwner
+from accounts.permissions import require_permission
 from .models import VideoAsset, Resource, Playlist, PlaylistItem
 from .serializers import (
     VideoAssetSerializer, VideoAssetCreateSerializer,
@@ -26,12 +26,19 @@ class VideoAssetViewSet(ModelViewSet):
     ViewSet for VideoAsset management
     """
     serializer_class = VideoAssetSerializer
-    permission_classes = [IsRegisteredUser]
+    permission_classes = [require_permission('library.videos')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['grade', 'topic', 'status', 'owner']
     search_fields = ['title', 'description', 'tags']
     ordering_fields = ['title', 'created_at', 'duration']
     ordering = ['-created_at']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [require_permission('content.manage')]
+        else:
+            permission_classes = [require_permission('library.videos')]
+        return [permission() for permission in permission_classes]
     
     def get_queryset(self):
         """Filter videos based on user's school and permissions"""
@@ -41,7 +48,7 @@ class VideoAssetViewSet(ModelViewSet):
         queryset = queryset.filter(school=self.request.user.school)
         
         # Non-owners can only see published videos (unless they're admins)
-        if not (self.request.user.is_admin or self.request.user.is_content_manager):
+        if not self.request.user.can('content.manage'):
             queryset = queryset.filter(
                 models.Q(owner=self.request.user) | 
                 models.Q(status='PUBLISHED')
@@ -68,12 +75,19 @@ class ResourceViewSet(ModelViewSet):
     ViewSet for Resource management
     """
     serializer_class = ResourceSerializer
-    permission_classes = [IsRegisteredUser]
+    permission_classes = [require_permission('library.resources')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['file_type', 'grade', 'topic', 'status', 'owner']
     search_fields = ['title', 'description', 'tags']
     ordering_fields = ['title', 'created_at', 'file_size']
     ordering = ['-created_at']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [require_permission('content.manage')]
+        else:
+            permission_classes = [require_permission('library.resources')]
+        return [permission() for permission in permission_classes]
     
     def get_queryset(self):
         """Filter resources based on user's school and permissions"""
@@ -83,7 +97,7 @@ class ResourceViewSet(ModelViewSet):
         queryset = queryset.filter(school=self.request.user.school)
         
         # Non-owners can only see published resources (unless they're admins)
-        if not (self.request.user.is_admin or self.request.user.is_content_manager):
+        if not self.request.user.can('content.manage'):
             queryset = queryset.filter(
                 models.Q(owner=self.request.user) | 
                 models.Q(status='PUBLISHED')
@@ -103,12 +117,19 @@ class PlaylistViewSet(ModelViewSet):
     ViewSet for Playlist management
     """
     serializer_class = PlaylistSerializer
-    permission_classes = [IsRegisteredUser]
+    permission_classes = [require_permission('library.videos')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['is_public', 'owner']
     search_fields = ['name', 'description']
     ordering_fields = ['name', 'created_at', 'updated_at']
     ordering = ['-updated_at']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [require_permission('dashboard.view')]
+        else:
+            permission_classes = [require_permission('library.videos')]
+        return [permission() for permission in permission_classes]
     
     def get_queryset(self):
         """Filter playlists based on user's school and visibility"""
@@ -120,7 +141,7 @@ class PlaylistViewSet(ModelViewSet):
         queryset = queryset.filter(school=self.request.user.school)
         
         # Users can see their own playlists or public ones
-        if not (self.request.user.is_admin or self.request.user.is_content_manager):
+        if not self.request.user.can('content.manage'):
             queryset = queryset.filter(
                 models.Q(owner=self.request.user) | 
                 models.Q(is_public=True)
@@ -137,7 +158,7 @@ class PlaylistViewSet(ModelViewSet):
 
 
 @api_view(['POST'])
-@permission_classes([IsRegisteredUser])
+@permission_classes([require_permission('content.manage')])
 def request_signed_upload_url(request):
     """
     Generate signed URL for direct upload to Firebase Storage
@@ -152,6 +173,12 @@ def request_signed_upload_url(request):
         )
     
     try:
+        if not request.user.school:
+            return Response(
+                {'error': 'User is not assigned to a school'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Extract validated data
         filename = serializer.validated_data['filename']
         file_size = serializer.validated_data['file_size']
@@ -187,7 +214,7 @@ def request_signed_upload_url(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsRegisteredUser])
+@permission_classes([require_permission('content.manage')])
 def upload_complete(request):
     """
     Handle upload completion and create asset record
@@ -202,6 +229,12 @@ def upload_complete(request):
         )
     
     try:
+        if not request.user.school:
+            return Response(
+                {'error': 'User is not assigned to a school'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         storage_path = serializer.validated_data['storage_path']
         
         # Verify file exists in Firebase Storage
@@ -281,7 +314,7 @@ def upload_complete(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsRegisteredUser])
+@permission_classes([require_permission('library.resources')])
 def generate_resource_download_url(request, resource_id):
     """
     Generate signed download URL for a resource (not videos) with tracking
@@ -295,12 +328,7 @@ def generate_resource_download_url(request, resource_id):
         )
         
         # Check if user can access this resource
-        if not (
-            resource.owner == request.user or 
-            resource.status == 'PUBLISHED' or
-            request.user.is_admin or 
-            request.user.is_content_manager
-        ):
+        if not request.user.can('resource.download', obj=resource):
             return Response(
                 {'error': 'Permission denied'},
                 status=status.HTTP_403_FORBIDDEN
