@@ -5,7 +5,12 @@ This module provides functions to sync Firestore collections to Django models
 import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+import copy
+import hashlib
+import json
 from django.utils import timezone
+from django.core.cache import cache
+from django.conf import settings
 from firebase_admin import firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 import firebase_admin
@@ -16,6 +21,27 @@ logger = logging.getLogger(__name__)
 # re-creating gRPC channels and re-parsing credentials on every call
 _firestore_client = None
 FIRESTORE_QUERY_TIMEOUT_SECONDS = 5
+ACTIVITY_QUERY_CACHE_TTL = getattr(settings, 'ACTIVITY_QUERY_CACHE_TTL', 30)
+
+
+def _build_activity_query_cache_key(
+    grade: Optional[str],
+    topics: Optional[List[str]],
+    location: Optional[str],
+    search: Optional[str],
+    extra_taxonomy: Optional[Dict[str, str]],
+) -> str:
+    """Build a stable cache key for activity query parameters."""
+    payload = {
+        'grade': grade or '',
+        'topics': sorted(topics or []),
+        'location': location or '',
+        'search': (search or '').strip().lower(),
+        'extra_taxonomy': {k: extra_taxonomy[k] for k in sorted((extra_taxonomy or {}).keys())},
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(',', ':'))
+    digest = hashlib.sha256(encoded.encode('utf-8')).hexdigest()
+    return f'activities:query:{digest}'
 
 
 def get_firestore_client():
@@ -142,6 +168,7 @@ def query_activities(
     location: Optional[str] = None,
     search: Optional[str] = None,
     extra_taxonomy: Optional[Dict[str, str]] = None,
+    taxonomy_categories: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Query activities with filters
@@ -153,11 +180,24 @@ def query_activities(
         search: Search query for title/description
         extra_taxonomy: Dict of additional taxonomy type->value filters
                         (e.g., {'standard': 'CCSS.3.NF.1'})
+        taxonomy_categories: Optional pre-fetched taxonomy categories to avoid
+                            duplicate reads in caller paths.
 
     Returns:
         List of matching activities
     """
     try:
+        cache_key = _build_activity_query_cache_key(
+            grade=grade,
+            topics=topics,
+            location=location,
+            search=search,
+            extra_taxonomy=extra_taxonomy,
+        )
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return copy.deepcopy(cached)
+
         db = get_firestore_client()
         query = db.collection('activities').where(filter=FieldFilter('status', '==', 'published'))
 
@@ -171,13 +211,15 @@ def query_activities(
         # against activity values (which store labels, not keys)
         key_to_label = {}
         if topics or extra_taxonomy:
-            from content.taxonomy_service import get_all_taxonomy_categories
-            for cat in get_all_taxonomy_categories():
+            if taxonomy_categories is None:
+                from content.taxonomy_service import get_all_taxonomy_categories
+                taxonomy_categories = get_all_taxonomy_categories()
+            for cat in taxonomy_categories:
                 for val in cat.get('values', []):
                     key_to_label[val['key']] = val.get('label', val['key'])
 
         # Execute query
-        docs = query.stream()
+        docs = query.stream(timeout=FIRESTORE_QUERY_TIMEOUT_SECONDS)
         results = []
 
         for doc in docs:
@@ -254,8 +296,9 @@ def query_activities(
         # Sort by order and activityNumber
         results.sort(key=lambda x: (x.get('order', 0), x.get('activityNumber', 0)))
 
+        cache.set(cache_key, results, ACTIVITY_QUERY_CACHE_TTL)
         logger.info(f"Query returned {len(results)} activities")
-        return results
+        return copy.deepcopy(results)
 
     except Exception as e:
         logger.error(f"Error querying activities: {e}")
@@ -1100,4 +1143,3 @@ def delete_comment(post_id: str, comment_id: str) -> bool:
     except Exception as e:
         logger.error(f"Failed to delete comment from Firestore: {e}")
         return False
-

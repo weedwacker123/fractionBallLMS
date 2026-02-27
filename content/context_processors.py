@@ -23,12 +23,21 @@ def menu_context(request):
             {% endif %}
         {% endfor %}
     """
-    from content.menu_service import get_header_menu, get_footer_menu
+    path = getattr(request, "path", "") or ""
+    # CMS routes do not use the public header/footer menu.
+    if path.startswith('/cms/'):
+        return {
+            'header_menu': [],
+            'footer_menu': [],
+        }
+
+    from content.menu_service import get_menus
 
     try:
+        menus = get_menus()
         return {
-            'header_menu': get_header_menu(),
-            'footer_menu': get_footer_menu(),
+            'header_menu': menus.get('header', []),
+            'footer_menu': menus.get('footer', []),
         }
     except Exception as e:
         logger.error(f"Error loading menus: {e}")

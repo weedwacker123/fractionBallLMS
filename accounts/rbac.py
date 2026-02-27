@@ -18,6 +18,7 @@ ACTION_POLICIES: Dict[str, Tuple[str, ...]] = {
     "cms_edit": ("cms_edit",),
     "activities_view": ("activities_view",),
     "resources_download": ("resources_download",),
+    "community_view": ("community_view",),
     "community_post": ("community_post",),
     "community_moderate": ("community_moderate",),
     # Domain capability aliases

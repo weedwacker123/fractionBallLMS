@@ -42,6 +42,10 @@ def _can_community_access(user):
     return user.is_authenticated and user.can('community_post')
 
 
+def _can_community_view(user):
+    return user.is_authenticated and (user.can('community_view') or user.can('community_post'))
+
+
 def _can_moderate_community(user):
     return user.is_authenticated and user.can('community_moderate')
 
@@ -50,8 +54,8 @@ def community_home(request):
     """
     Main community page with forum posts
     """
-    if not _can_community_access(request.user):
-        return HttpResponseForbidden("Missing required permission: community_post")
+    if not _can_community_view(request.user):
+        return HttpResponseForbidden("Missing required permission: community_view")
 
     # Get filter parameters
     category_slug = request.GET.get('category', '')
@@ -106,8 +110,8 @@ def post_detail(request, slug):
     """
     Individual post detail page with comments
     """
-    if not _can_community_access(request.user):
-        return HttpResponseForbidden("Missing required permission: community_post")
+    if not _can_community_view(request.user):
+        return HttpResponseForbidden("Missing required permission: community_view")
 
     use_firestore = _use_firestore()
     used_firestore = False

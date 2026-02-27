@@ -82,6 +82,9 @@ def home(request):
             if value:
                 extra_taxonomy[key[7:]] = value
 
+    taxonomy_categories = taxonomy_service.get_all_taxonomy_categories()
+    taxonomies = taxonomy_service.get_all_taxonomies()
+
     if getattr(settings, 'USE_FIRESTORE', False):
         # Use Firestore for data
         activities_data = firestore_service.query_activities(
@@ -90,6 +93,7 @@ def home(request):
             location=selected_location if selected_location else None,
             search=search_query if search_query else None,
             extra_taxonomy=extra_taxonomy if extra_taxonomy else None,
+            taxonomy_categories=taxonomy_categories,
         )
         activities = [FirestoreActivity.from_dict(a) for a in activities_data]
 
@@ -143,10 +147,6 @@ def home(request):
             all_topics.update(activity.topics if isinstance(activity.topics, list) else [])
         all_topics = sorted(list(all_topics))
 
-    # Get dynamic taxonomy categories from CMS (cached, auto-discovers new types)
-    taxonomy_categories = taxonomy_service.get_all_taxonomy_categories()
-    taxonomies = taxonomy_service.get_all_taxonomies()
-
     # Build selected filters dict for JS initialization
     selected_filters = {'grade': selected_grade, 'q': search_query}
     if selected_location:
@@ -170,7 +170,7 @@ def home(request):
         'taxonomy_categories_json': json.dumps(taxonomy_categories),
         'selected_filters_json': json.dumps(selected_filters),
         # Keep backward-compatible vars
-        'grade_choices': taxonomy_service.get_grade_keys(),
+        'grade_choices': [g.get('key', '') for g in taxonomies['grades'] if g.get('key')],
         'grade_levels': taxonomies['grades'],
         'topic_taxonomies': taxonomies['topics'],
         'court_types': taxonomies['courtTypes'],
@@ -459,6 +459,10 @@ def search_activities(request):
     extra_taxonomy = filters if filters else None
 
     if getattr(settings, 'USE_FIRESTORE', False):
+        taxonomy_categories = None
+        if topics or extra_taxonomy:
+            taxonomy_categories = taxonomy_service.get_all_taxonomy_categories()
+
         # Use Firestore for data
         activities_data = firestore_service.query_activities(
             grade=grade if grade else None,
@@ -466,6 +470,7 @@ def search_activities(request):
             location=location if location else None,
             search=query if query else None,
             extra_taxonomy=extra_taxonomy,
+            taxonomy_categories=taxonomy_categories,
         )
         activities = [FirestoreActivity.from_dict(a) for a in activities_data]
     else:

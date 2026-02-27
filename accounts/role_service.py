@@ -26,6 +26,7 @@ PERMISSION_KEYS = [
     'cms_edit',
     'activities_view',
     'resources_download',
+    'community_view',
     'community_post',
     'community_moderate',
 ]
@@ -46,6 +47,7 @@ FALLBACK_ROLES: Dict[str, dict] = {
             'cms_edit': True,
             'activities_view': True,
             'resources_download': True,
+            'community_view': True,
             'community_post': True,
             'community_moderate': True,
         },
@@ -58,6 +60,7 @@ FALLBACK_ROLES: Dict[str, dict] = {
             'cms_edit': False,
             'activities_view': True,
             'resources_download': True,
+            'community_view': True,
             'community_post': True,
             'community_moderate': False,
         },

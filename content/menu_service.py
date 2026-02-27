@@ -4,9 +4,10 @@ Menu Service for fetching dynamic menus from Firestore CMS
 This service provides cached access to menu items for header/footer navigation
 """
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from django.core.cache import cache
 from django.conf import settings
+from content.firestore_service import FIRESTORE_QUERY_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,11 @@ def _fetch_menu_items_from_firestore(location: str) -> List[Dict[str, Any]]:
         # Fetch all active menu items for this location
         from google.cloud.firestore_v1.base_query import FieldFilter
         # Query without order_by to avoid composite index requirement; sort in Python
-        docs = db.collection('menuItems').where(filter=FieldFilter('location', '==', location)).where(filter=FieldFilter('active', '==', True)).stream()
+        docs = db.collection('menuItems').where(
+            filter=FieldFilter('location', '==', location)
+        ).where(
+            filter=FieldFilter('active', '==', True)
+        ).stream(timeout=FIRESTORE_QUERY_TIMEOUT_SECONDS)
 
         items = []
         items_by_id = {}
@@ -103,6 +108,100 @@ def _fetch_menu_items_from_firestore(location: str) -> List[Dict[str, Any]]:
         return []
 
 
+def _fetch_all_menus_from_firestore() -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Fetch all active menu items once and split into header/footer trees.
+    """
+    try:
+        db = _get_firestore_client()
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        docs = db.collection('menuItems').where(
+            filter=FieldFilter('active', '==', True)
+        ).stream(timeout=FIRESTORE_QUERY_TIMEOUT_SECONDS)
+
+        buckets: Dict[str, List[Dict[str, Any]]] = {
+            'header': [],
+            'footer': [],
+        }
+        item_maps: Dict[str, Dict[str, Dict[str, Any]]] = {
+            'header': {},
+            'footer': {},
+        }
+
+        for doc in docs:
+            data = doc.to_dict()
+            location = data.get('location')
+            if location not in buckets:
+                continue
+
+            item = {
+                'id': doc.id,
+                'label': data.get('label', ''),
+                'url': _normalize_url(data.get('url', '')),
+                'type': data.get('type', 'page'),
+                'openInNewTab': data.get('openInNewTab', False),
+                'icon': data.get('icon'),
+                'displayOrder': data.get('displayOrder', 0),
+                'parentId': data.get('parentId'),
+                'children': [],
+            }
+            buckets[location].append(item)
+            item_maps[location][doc.id] = item
+
+        result: Dict[str, List[Dict[str, Any]]] = {}
+        for location in ('header', 'footer'):
+            items = buckets[location]
+            items.sort(key=lambda x: x.get('displayOrder', 0))
+            root_items = []
+            id_map = item_maps[location]
+
+            for item in items:
+                parent_ref = item.get('parentId')
+                if parent_ref:
+                    parent_id = parent_ref.id if hasattr(parent_ref, 'id') else str(parent_ref)
+                    if parent_id in id_map:
+                        id_map[parent_id]['children'].append(item)
+                else:
+                    root_items.append(item)
+
+            for item in root_items:
+                item['children'].sort(key=lambda x: x.get('displayOrder', 0))
+            result[location] = root_items
+
+        logger.info(
+            "Fetched %s header menu items and %s footer menu items",
+            len(result['header']),
+            len(result['footer']),
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching full menus: {e}")
+        return {
+            'header': [],
+            'footer': [],
+        }
+
+
+def get_menus() -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Get both header and footer menus using one cache entry/read path.
+    """
+    cache_key = 'menu:all'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    menus = _fetch_all_menus_from_firestore()
+    if not menus.get('header'):
+        logger.warning("Using fallback header menu - Firestore unavailable or empty")
+        menus['header'] = _get_fallback_header_menu()
+    if not menus.get('footer'):
+        menus['footer'] = _get_fallback_footer_menu()
+
+    cache.set(cache_key, menus, MENU_CACHE_TTL)
+    return menus
+
+
 def get_header_menu() -> List[Dict[str, Any]]:
     """
     Get header menu items from cache or Firestore
@@ -117,8 +216,9 @@ def get_header_menu() -> List[Dict[str, Any]]:
     if cached is not None:
         return cached
 
-    # Fetch from Firestore
-    menu_items = _fetch_menu_items_from_firestore('header')
+    # Prefer shared menu cache to avoid duplicate Firestore reads per request
+    menus = get_menus()
+    menu_items = menus.get('header', [])
 
     # Use fallback if empty
     if not menu_items:
@@ -144,8 +244,9 @@ def get_footer_menu() -> List[Dict[str, Any]]:
     if cached is not None:
         return cached
 
-    # Fetch from Firestore
-    menu_items = _fetch_menu_items_from_firestore('footer')
+    # Prefer shared menu cache to avoid duplicate Firestore reads per request
+    menus = get_menus()
+    menu_items = menus.get('footer', [])
 
     # Use fallback if empty
     if not menu_items:
@@ -178,8 +279,10 @@ def refresh_menu_cache():
     """
     cache.delete('menu:header')
     cache.delete('menu:footer')
+    cache.delete('menu:all')
 
     # Pre-populate caches
+    get_menus()
     get_header_menu()
     get_footer_menu()
 
