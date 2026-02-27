@@ -96,6 +96,17 @@ def decide(user: Any, action: str, obj: Optional[Any] = None) -> RBACDecision:
             reason="unauthenticated",
         )
 
+    # Explicit admin bypass to prevent lockouts when role documents
+    # are stale/missing/misconfigured in Firestore.
+    if getattr(user, "is_superuser", False) or getattr(user, "is_admin", False):
+        return RBACDecision(
+            allowed=True,
+            action=action,
+            required_permissions=_required_permissions(action),
+            missing_permissions=(),
+            reason="admin_override",
+        )
+
     required = _required_permissions(action)
     missing = _missing_permissions(user, required)
     if missing:

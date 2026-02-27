@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Access Restricted | Fraction Ball{% endblock %}
+
+{% block content %}
+<div class="px-4 py-10 sm:px-6 lg:px-8">
+    <div class="max-w-2xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-8 text-center">
+        <div class="mx-auto mb-4 h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
+            <svg class="h-6 w-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M4.938 19h14.124c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.206 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+        </div>
+
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">You do not have access to this page</h1>
+        <p class="text-gray-600 mb-6">
+            Your account is signed in, but it does not include the required permission.
+        </p>
+
+        {% if required_action %}
+        <p class="text-sm text-gray-500 mb-1">
+            Required permission: <span class="font-semibold text-gray-700">{{ required_action }}</span>
+        </p>
+        {% endif %}
+        {% if deny_reason %}
+        <p class="text-sm text-gray-500 mb-6">
+            Reason: {{ deny_reason }}
+        </p>
+        {% endif %}
+
+        <div class="flex items-center justify-center gap-3">
+            <a href="/" class="px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-black transition-colors">
+                Back to Home
+            </a>
+            <a href="/accounts/logout/" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors">
+                Sign out
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

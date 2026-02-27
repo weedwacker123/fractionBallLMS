@@ -5,7 +5,7 @@ A beautiful, user-friendly content management interface
 import logging
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -20,9 +20,9 @@ def has_cms_access(user):
     """Check whether user can access CMS via centralized RBAC."""
     if not user.is_authenticated:
         return False
-    if getattr(user, 'is_superuser', False):
+    if getattr(user, 'is_superuser', False) or getattr(user, 'is_admin', False):
         return True
-    return user.can('cms_view')
+    return user.can('cms_view') or user.can('cms_edit')
 
 
 @ensure_csrf_cookie
@@ -35,8 +35,15 @@ def cms_login(request):
             logger.info(f"User {request.user.username} already authenticated, redirecting to dashboard")
             return redirect('cms:dashboard')
         else:
-            messages.error(request, 'You do not have permission to access the CMS.')
-            return redirect('/')
+            return render(
+                request,
+                'no_permission.html',
+                {
+                    'required_action': 'cms_view',
+                    'deny_reason': 'missing_permission',
+                },
+                status=403,
+            )
     
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
@@ -71,9 +78,18 @@ def cms_login(request):
 
 
 @login_required(login_url='/cms/login/')
-@user_passes_test(has_cms_access, login_url='/cms/login/')
 def cms_dashboard(request):
     """CMS Dashboard with stats and quick actions"""
+    if not has_cms_access(request.user):
+        return render(
+            request,
+            'no_permission.html',
+            {
+                'required_action': 'cms_view',
+                'deny_reason': 'missing_permission',
+            },
+            status=403,
+        )
     
     # Get counts
     activity_count = Activity.objects.count()
