@@ -10,6 +10,7 @@ from django.utils.text import slugify
 from django.utils import timezone
 from django.db.models import Q, Count
 from django.conf import settings
+from accounts.permissions import require_permission_view, _permission_denied_response
 from .models import ForumPost, ForumComment, ForumCategory, Activity
 from . import firestore_service
 from .firestore_adapters import (
@@ -50,12 +51,11 @@ def _can_moderate_community(user):
     return user.is_authenticated and user.can('community_moderate')
 
 
+@require_permission_view('community_view')
 def community_home(request):
     """
     Main community page with forum posts
     """
-    if not _can_community_view(request.user):
-        return HttpResponseForbidden("Missing required permission: community_view")
 
     # Get filter parameters
     category_slug = request.GET.get('category', '')
@@ -106,12 +106,11 @@ def community_home(request):
     return render(request, 'community.html', context)
 
 
+@require_permission_view('community_view')
 def post_detail(request, slug):
     """
     Individual post detail page with comments
     """
-    if not _can_community_view(request.user):
-        return HttpResponseForbidden("Missing required permission: community_view")
 
     use_firestore = _use_firestore()
     used_firestore = False
@@ -183,14 +182,12 @@ def post_detail(request, slug):
     return render(request, 'community_post_detail.html', context)
 
 
-@login_required
+@require_permission_view('community_post')
 @require_http_methods(["GET", "POST"])
 def create_post(request):
     """
     Create a new forum post
     """
-    if not _can_community_access(request.user):
-        return HttpResponseForbidden("Missing required permission: community_post")
 
     if request.method == 'POST':
         try:
@@ -312,10 +309,7 @@ def add_comment(request, post_slug):
     Add a comment to a post
     """
     if not _can_community_access(request.user):
-        return JsonResponse(
-            {'success': False, 'message': 'Missing required permission: community_post'},
-            status=403
-        )
+        return _permission_denied_response(request, 'community_post', 'missing_permission')
 
     try:
         if _use_firestore():
@@ -595,10 +589,7 @@ def flag_post(request, post_id):
     Teachers can flag posts, admins will see them in CMS
     """
     if not _can_community_access(request.user):
-        return JsonResponse(
-            {'success': False, 'message': 'Missing required permission: community_post'},
-            status=403
-        )
+        return _permission_denied_response(request, 'community_post', 'missing_permission')
 
     try:
         if _use_firestore():
@@ -685,14 +676,12 @@ def flag_post(request, post_id):
         }, status=500)
 
 
-@login_required
+@require_permission_view('community_post')
 @require_http_methods(["GET", "POST"])
 def edit_post(request, post_id):
     """
     Edit an existing post (author only)
     """
-    if not _can_community_access(request.user):
-        return HttpResponseForbidden("Missing required permission: community_post")
 
     if _use_firestore():
         post_data = firestore_service.get_document('communityPosts', post_id)

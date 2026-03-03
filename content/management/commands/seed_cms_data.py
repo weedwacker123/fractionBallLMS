@@ -232,6 +232,20 @@ class Command(BaseCommand):
                     {'key': 'field', 'label': 'Outdoor Field', 'description': 'Outdoor field activities'},
                 ]
             },
+            # Community Categories (drives community post category dropdown)
+            {
+                'name': 'Community Categories',
+                'type': 'community_category',
+                'active': True,
+                'displayOrder': 4,
+                'hierarchical': False,
+                'values': [
+                    {'key': 'question', 'label': 'Question', 'description': 'Ask the community a question'},
+                    {'key': 'discussion', 'label': 'Discussion', 'description': 'General discussion topics'},
+                    {'key': 'resource_share', 'label': 'Resource Share', 'description': 'Share a resource with the community'},
+                    {'key': 'announcement', 'label': 'Announcement', 'description': 'Important announcements'},
+                ]
+            },
         ]
 
     def get_menu_data(self):
